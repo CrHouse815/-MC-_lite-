@@ -1,5 +1,6 @@
 /**
  * MClite v2 - 花名册 Store
+ * 增强版：支持自动响应后台 MVU 变量变化
  */
 
 import { defineStore } from 'pinia';
@@ -32,10 +33,22 @@ export const useRosterStore = defineStore('roster', () => {
   const error = ref<string | null>(null);
   const selectedEntryId = ref<string | null>(null);
 
+  /**
+   * 更新版本号 - 用于强制触发计算属性重新计算
+   * 当 MVU 后台数据更新时递增此值
+   */
+  const updateVersion = ref(0);
+
+  /** 取消 MVU 更新监听的函数 */
+  let unsubscribeUpdate: (() => void) | null = null;
+
   // ========== 计算属性 ==========
 
   /** 完整花名册数据 */
   const roster = computed<RosterV2>(() => {
+    // 依赖 updateVersion 实现响应式更新
+    // 当 MVU 后台数据变化时，updateVersion 会递增，触发此计算属性重新计算
+    updateVersion.value;
     const data = mvuStore.getVariable(ROSTER_PATH, DEFAULT_ROSTER);
     return data as RosterV2;
   });
@@ -105,6 +118,16 @@ export const useRosterStore = defineStore('roster', () => {
     try {
       isLoading.value = true;
       if (!mvuStore.isMvuAvailable) await mvuStore.initialize();
+
+      // 注册 MVU 更新结束事件监听
+      // 当后台变量更新完成时，递增 updateVersion 触发响应式更新
+      if (!unsubscribeUpdate) {
+        unsubscribeUpdate = mvuStore.onUpdateEnd(() => {
+          console.log('[RosterStore] 收到 MVU 更新结束事件，触发刷新');
+          updateVersion.value++;
+        });
+      }
+
       isInitialized.value = true;
     } catch (err) {
       error.value = err instanceof Error ? err.message : '初始化失败';
@@ -113,7 +136,21 @@ export const useRosterStore = defineStore('roster', () => {
     }
   };
 
-  const refresh = async () => await mvuStore.refresh();
+  const refresh = async () => {
+    await mvuStore.refresh();
+    // 手动刷新时也递增版本号
+    updateVersion.value++;
+  };
+
+  /**
+   * 销毁 Store，清理事件监听
+   */
+  const destroy = () => {
+    if (unsubscribeUpdate) {
+      unsubscribeUpdate();
+      unsubscribeUpdate = null;
+    }
+  };
 
   const selectEntry = (entryId: string | null) => {
     selectedEntryId.value = entryId;
@@ -192,6 +229,7 @@ export const useRosterStore = defineStore('roster', () => {
     isLoading,
     error,
     selectedEntryId,
+    updateVersion, // 暴露更新版本号，便于外部监听
     // 计算属性
     roster,
     schema,
@@ -209,6 +247,7 @@ export const useRosterStore = defineStore('roster', () => {
     // Actions
     initialize,
     refresh,
+    destroy,
     selectEntry,
     getField,
     getGroup,

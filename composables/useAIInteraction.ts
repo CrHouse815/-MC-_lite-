@@ -301,9 +301,274 @@ export function useAIInteraction() {
 
   // ========== 变量更新处理 ==========
 
+  /** 变量更新前的快照（用于对比检测变化） */
+  let preUpdateSnapshot: Record<string, any> | null = null;
+
+  /**
+   * 保存变量更新前的快照
+   * 在执行 parseAndUpdateVariables 之前调用
+   */
+  const savePreUpdateSnapshot = (mvuStore: ReturnType<typeof useMvuStore>): void => {
+    try {
+      const statData = mvuStore.statData;
+      if (statData && typeof statData === 'object') {
+        preUpdateSnapshot = JSON.parse(JSON.stringify(statData));
+        console.log('[useAIInteraction] 已保存变量更新前快照，顶级键:', Object.keys(preUpdateSnapshot || {}));
+      } else {
+        preUpdateSnapshot = null;
+      }
+    } catch (err) {
+      console.warn('[useAIInteraction] 保存变量快照失败:', err);
+      preUpdateSnapshot = null;
+    }
+  };
+
+  /**
+   * 通过对比快照检测变量变化
+   * 比较更新前后的 stat_data 来准确识别变化
+   */
+  const detectChangesByComparison = (mvuStore: ReturnType<typeof useMvuStore>): VariableChange[] => {
+    const changes: VariableChange[] = [];
+
+    if (!preUpdateSnapshot) {
+      console.log('[useAIInteraction] 没有更新前快照，无法对比检测变化');
+      return changes;
+    }
+
+    const currentData = mvuStore.statData;
+    if (!currentData || typeof currentData !== 'object') {
+      console.log('[useAIInteraction] 当前数据为空，无法对比检测变化');
+      return changes;
+    }
+
+    // 递归对比两个对象，找出差异
+    compareObjects(preUpdateSnapshot, currentData, '', changes);
+
+    console.log('[useAIInteraction] 通过对比检测到', changes.length, '个变量变化');
+    return changes;
+  };
+
+  /**
+   * 递归对比两个对象，找出差异
+   */
+  const compareObjects = (
+    oldObj: Record<string, any>,
+    newObj: Record<string, any>,
+    parentPath: string,
+    changes: VariableChange[],
+  ): void => {
+    // 获取所有键（合并新旧对象的键）
+    const allKeys = new Set([...Object.keys(oldObj || {}), ...Object.keys(newObj || {})]);
+
+    for (const key of allKeys) {
+      const currentPath = parentPath ? `${parentPath}.${key}` : key;
+      const oldValue = oldObj?.[key];
+      const newValue = newObj?.[key];
+
+      // 跳过未定义的情况（两边都没有）
+      if (oldValue === undefined && newValue === undefined) continue;
+
+      // 新增的键
+      if (oldValue === undefined && newValue !== undefined) {
+        changes.push({
+          path: currentPath,
+          oldValue: undefined,
+          newValue: newValue,
+          comment: '新增',
+        });
+        continue;
+      }
+
+      // 删除的键（通常不记录，但可以选择性地添加）
+      if (oldValue !== undefined && newValue === undefined) {
+        // 可选：记录删除
+        // changes.push({ path: currentPath, oldValue, newValue: undefined, comment: '删除' });
+        continue;
+      }
+
+      // 两边都有值，对比
+      const oldType = typeof oldValue;
+      const newType = typeof newValue;
+
+      // 类型不同，记录为变化
+      if (oldType !== newType) {
+        changes.push({
+          path: currentPath,
+          oldValue,
+          newValue,
+          comment: '类型变化',
+        });
+        continue;
+      }
+
+      // 基本类型对比
+      if (oldType !== 'object' || oldValue === null || newValue === null) {
+        if (oldValue !== newValue) {
+          changes.push({
+            path: currentPath,
+            oldValue,
+            newValue,
+          });
+        }
+        continue;
+      }
+
+      // 数组对比（简单对比）
+      if (Array.isArray(oldValue) || Array.isArray(newValue)) {
+        const oldStr = JSON.stringify(oldValue);
+        const newStr = JSON.stringify(newValue);
+        if (oldStr !== newStr) {
+          changes.push({
+            path: currentPath,
+            oldValue,
+            newValue,
+            comment: '数组变化',
+          });
+        }
+        continue;
+      }
+
+      // 对象递归对比
+      compareObjects(oldValue, newValue, currentPath, changes);
+    }
+  };
+
+  /**
+   * 从 delta_data 或 display_data 中提取变量变化
+   * MVU 原生 parseMessage 会将变化记录在这些字段中
+   */
+  const extractChangesFromMvuData = (mvuStore: ReturnType<typeof useMvuStore>): VariableChange[] => {
+    const changes: VariableChange[] = [];
+
+    // 方法1：优先从 delta_data 获取变化（包含新旧值）
+    const deltaData = mvuStore.deltaData;
+    if (deltaData && typeof deltaData === 'object' && Object.keys(deltaData).length > 0) {
+      console.log('[useAIInteraction] 从 delta_data 提取变量变化:', Object.keys(deltaData));
+      console.log('[useAIInteraction] delta_data 内容:', JSON.stringify(deltaData).substring(0, 500));
+      extractChangesRecursive(deltaData, '', changes);
+      if (changes.length > 0) {
+        return changes;
+      }
+    }
+
+    // 方法2：从 display_data 提取变化（只包含变化描述）
+    const displayData = mvuStore.displayData;
+    if (displayData && typeof displayData === 'object' && Object.keys(displayData).length > 0) {
+      console.log('[useAIInteraction] 从 display_data 提取变量变化:', Object.keys(displayData));
+      console.log('[useAIInteraction] display_data 内容:', JSON.stringify(displayData).substring(0, 500));
+      extractDisplayChangesRecursive(displayData, '', changes, mvuStore);
+      if (changes.length > 0) {
+        return changes;
+      }
+    }
+
+    // 方法3：回退到快照对比
+    console.log('[useAIInteraction] delta_data 和 display_data 都没有变化，尝试快照对比...');
+    return detectChangesByComparison(mvuStore);
+  };
+
+  /**
+   * 递归提取 delta_data 中的变量变化
+   * delta_data 可能的结构：
+   * 1. { "MC": { "角色": { "心情": { old: 80, new: 90 } } } } - 带 old/new
+   * 2. { "MC.角色.心情": { old: 80, new: 90 } } - 扁平化路径
+   * 3. { "MC": { "角色": { "心情": 90 } } } - 只有新值（需要从快照获取旧值）
+   */
+  const extractChangesRecursive = (obj: Record<string, any>, parentPath: string, changes: VariableChange[]): void => {
+    for (const key of Object.keys(obj)) {
+      const value = obj[key];
+      const currentPath = parentPath ? `${parentPath}.${key}` : key;
+
+      // 情况1：检查是否是变化记录格式 { old: ..., new: ... }
+      if (value && typeof value === 'object' && 'new' in value) {
+        changes.push({
+          path: currentPath,
+          oldValue: value.old,
+          newValue: value.new,
+          comment: value.reason || value.comment,
+        });
+        continue;
+      }
+
+      // 情况2：检查是否是变化记录格式 { oldValue: ..., newValue: ... }
+      if (value && typeof value === 'object' && 'newValue' in value) {
+        changes.push({
+          path: currentPath,
+          oldValue: value.oldValue,
+          newValue: value.newValue,
+          comment: value.reason || value.comment,
+        });
+        continue;
+      }
+
+      // 情况3：如果是基本类型值（数字、字符串、布尔值），可能是直接的新值
+      if (value !== null && value !== undefined && typeof value !== 'object') {
+        // 尝试从快照获取旧值
+        const oldValue = preUpdateSnapshot ? getNestedValue(preUpdateSnapshot, currentPath) : undefined;
+        if (oldValue !== value) {
+          changes.push({
+            path: currentPath,
+            oldValue,
+            newValue: value,
+          });
+        }
+        continue;
+      }
+
+      // 情况4：递归处理嵌套对象（但不是数组）
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        extractChangesRecursive(value, currentPath, changes);
+      }
+    }
+  };
+
+  /**
+   * 从嵌套对象中获取值
+   */
+  const getNestedValue = (obj: Record<string, any>, path: string): any => {
+    return path.split('.').reduce((current, key) => {
+      return current && typeof current === 'object' ? current[key] : undefined;
+    }, obj);
+  };
+
+  /**
+   * 递归提取 display_data 中的变量变化
+   * display_data 通常包含变化的描述文本
+   */
+  const extractDisplayChangesRecursive = (
+    obj: Record<string, any>,
+    parentPath: string,
+    changes: VariableChange[],
+    mvuStore: ReturnType<typeof useMvuStore>,
+  ): void => {
+    for (const key of Object.keys(obj)) {
+      const value = obj[key];
+      const currentPath = parentPath ? `${parentPath}.${key}` : key;
+
+      if (typeof value === 'string') {
+        // display_data 中的叶子节点是描述文本
+        // 尝试从 stat_data 获取当前值
+        const currentValue = mvuStore.getVariable(currentPath);
+        // 尝试从快照获取旧值
+        const oldValue = preUpdateSnapshot ? getNestedValue(preUpdateSnapshot, currentPath) : undefined;
+        changes.push({
+          path: currentPath,
+          oldValue,
+          newValue: currentValue,
+          comment: value, // 描述作为注释
+        });
+      } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+        // 递归处理嵌套对象
+        extractDisplayChangesRecursive(value, currentPath, changes, mvuStore);
+      }
+    }
+  };
+
   /**
    * 解析并更新变量
    * 参考归墟的MVU变量更新逻辑
+   * 增强：从 delta_data/display_data 提取实际变量变化
+   * 修复：在执行命令前保存快照，用于准确检测变化
    */
   const parseAndUpdateVariables = async (message: string): Promise<void> => {
     try {
@@ -340,28 +605,67 @@ export function useAIInteraction() {
 
       console.log('[useAIInteraction] 发现变量更新指令，开始解析执行...');
 
+      // 【关键修复】在执行命令前保存快照，用于对比检测变化
+      savePreUpdateSnapshot(mvuStore);
+
       // 解析并执行指令
       const result = await mvuStore.parseAndExecuteCommands(message);
 
       if (result.success) {
         console.log('[useAIInteraction] 变量更新成功，共执行', result.results.length, '条指令');
 
-        // 记录变量变化
-        result.results.forEach((r: any) => {
-          if (r.success) {
-            variableChanges.value.push({
-              path: r.command.path,
-              oldValue: r.oldValue,
-              newValue: r.newValue,
-              comment: r.command.comment,
-            });
+        // 刷新 MVU Store 以确保数据是最新的
+        await mvuStore.refresh();
+
+        // 检查是否使用了 MVU 原生解析（返回 MVU_NATIVE 占位符）
+        const isNativeResult = result.results.length === 1 && result.results[0].command?.path === 'MVU_NATIVE';
+
+        if (isNativeResult) {
+          // MVU 原生解析成功，从 delta_data/display_data/快照对比 提取变化
+          console.log('[useAIInteraction] 使用 MVU 原生解析，从 MVU 数据提取变量变化...');
+          const extractedChanges = extractChangesFromMvuData(mvuStore);
+          variableChanges.value = extractedChanges;
+          console.log('[useAIInteraction] 提取到', extractedChanges.length, '个变量变化');
+
+          // 如果 delta_data 和 display_data 都没有提取到变化，输出详细调试信息
+          if (extractedChanges.length === 0) {
+            console.log(
+              '[useAIInteraction] 调试信息 - delta_data:',
+              JSON.stringify(mvuStore.deltaData).substring(0, 300),
+            );
+            console.log(
+              '[useAIInteraction] 调试信息 - display_data:',
+              JSON.stringify(mvuStore.displayData).substring(0, 300),
+            );
+            console.log('[useAIInteraction] 调试信息 - 快照存在:', !!preUpdateSnapshot);
           }
-        });
+        } else {
+          // 自定义解析器，从结果中提取变化
+          result.results.forEach((r: any) => {
+            if (r.success && r.command?.path !== 'MVU_NATIVE') {
+              variableChanges.value.push({
+                path: r.command.path,
+                oldValue: r.oldValue,
+                newValue: r.newValue,
+                comment: r.command.comment,
+              });
+            }
+          });
+        }
+
+        console.log('[useAIInteraction] 最终变量变化数:', variableChanges.value.length);
+
+        // 清理快照
+        preUpdateSnapshot = null;
       } else {
         console.warn('[useAIInteraction] 变量更新失败:', result.error);
+        // 清理快照
+        preUpdateSnapshot = null;
       }
     } catch (err) {
       console.error('[useAIInteraction] 解析变量更新失败:', err);
+      // 清理快照
+      preUpdateSnapshot = null;
     }
   };
 

@@ -3,6 +3,7 @@
   职场模拟游戏 - 游戏文本显示区域
   参考归墟模式：只显示当前AI回复内容，而非聊天列表
   集成内容块差异化显示系统
+  集成变量变化面板 - 显示AI回复后的变量更新
 -->
 <template>
   <main class="main-content">
@@ -48,30 +49,34 @@
           />
         </div>
 
-        <!-- 变量变化提醒（参考归墟的设计） -->
-        <div v-if="variableChanges.length > 0" class="variable-changes">
-          <div class="changes-header" @click="showChanges = !showChanges">
-            <span class="changes-icon">📊</span>
-            <span class="changes-title">变量变化 ({{ variableChanges.length }})</span>
-            <span class="changes-toggle">{{ showChanges ? '▼' : '▶' }}</span>
-          </div>
-          <div v-if="showChanges" class="changes-list">
-            <div v-for="(change, index) in variableChanges" :key="index" class="change-item">
-              <span class="change-path">{{ change.path }}</span>
-              <span class="change-arrow">→</span>
-              <span class="change-value">{{ formatValue(change.newValue) }}</span>
-            </div>
-          </div>
-        </div>
+        <!-- 变量变化面板（增强版） -->
+        <VariableChangesPanel
+          ref="variableChangesPanelRef"
+          :changes="variableChanges"
+          :default-expanded="shouldAutoExpandChanges"
+          @clear="handleClearChanges"
+          @copy="handleCopyChanges"
+        />
       </div>
     </div>
   </main>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, computed } from 'vue';
 import ContentBlockRenderer from '../common/ContentBlockRenderer.vue';
+import VariableChangesPanel from '../common/VariableChangesPanel.vue';
 import type { ContentBlockEvent, ParseResult, RendererConfig } from '../../types/contentBlock';
+
+// ============ Types ============
+
+/** 变量变化记录（与 useAIInteraction 中的 VariableChange 保持一致） */
+interface VariableChange {
+  path: string;
+  oldValue?: any;
+  newValue: any;
+  comment?: string;
+}
 
 // ============ Props ============
 interface Props {
@@ -82,7 +87,7 @@ interface Props {
   /** 是否正在流式传输 */
   isStreaming?: boolean;
   /** 变量变化列表 */
-  variableChanges?: Array<{ path: string; oldValue?: any; newValue: any }>;
+  variableChanges?: VariableChange[];
   /** 最后更新时间 */
   lastUpdateTime?: string;
 }
@@ -97,7 +102,12 @@ const props = withDefaults(defineProps<Props>(), {
 
 // ============ Refs ============
 const contentRef = ref<HTMLElement | null>(null);
-const showChanges = ref(false);
+const variableChangesPanelRef = ref<InstanceType<typeof VariableChangesPanel> | null>(null);
+
+// ============ 计算属性 ============
+
+/** 是否应该自动展开变量变化面板（有变化时自动展开） */
+const shouldAutoExpandChanges = computed(() => props.variableChanges.length > 0);
 
 // ============ 内容块渲染配置 ============
 
@@ -144,12 +154,18 @@ const scrollToBottom = (): void => {
 };
 
 /**
- * 格式化值用于显示
+ * 处理清空变量变化记录
  */
-const formatValue = (value: any): string => {
-  if (value === null || value === undefined) return 'null';
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
+const handleClearChanges = (): void => {
+  console.log('[MainContent] 清空变量变化记录');
+  // 通知父组件清空变量变化（如果需要）
+};
+
+/**
+ * 处理复制变量变化记录
+ */
+const handleCopyChanges = (content: string): void => {
+  console.log('[MainContent] 复制变量变化记录:', content.substring(0, 100));
 };
 
 // ============ 监听 ============
@@ -165,6 +181,10 @@ watch(
 // 暴露方法给父组件
 defineExpose({
   scrollToBottom,
+  /** 展开变量变化面板 */
+  expandChangesPanel: () => variableChangesPanelRef.value?.expand(),
+  /** 收起变量变化面板 */
+  collapseChangesPanel: () => variableChangesPanelRef.value?.collapse(),
 });
 </script>
 
@@ -320,68 +340,13 @@ defineExpose({
   }
 }
 
-// ============ 变量变化 ============
-.variable-changes {
+// ============ 变量变化面板 ============
+:deep(.variable-changes-panel) {
   margin-top: auto;
-  border-top: 1px solid var(--border-color);
-  background: var(--bg-tertiary);
-}
-
-.changes-header {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-sm) var(--spacing-md);
-  cursor: pointer;
-  transition: background var(--transition-fast);
-
-  &:hover {
-    background: var(--bg-hover);
-  }
-
-  .changes-icon {
-    font-size: 14px;
-  }
-
-  .changes-title {
-    flex: 1;
-    font-size: var(--font-sm);
-    font-weight: 500;
-    color: var(--text-color);
-  }
-
-  .changes-toggle {
-    font-size: 10px;
-    color: var(--text-disabled);
-  }
-}
-
-.changes-list {
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--bg-color);
-  border-top: 1px solid var(--border-color);
-}
-
-.change-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-xs) 0;
-  font-size: var(--font-xs);
-
-  .change-path {
-    color: var(--text-secondary);
-    font-family: monospace;
-  }
-
-  .change-arrow {
-    color: var(--text-disabled);
-  }
-
-  .change-value {
-    color: var(--primary-color);
-    font-family: monospace;
-  }
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
 }
 
 // ============ 响应式 ============

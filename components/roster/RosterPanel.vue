@@ -130,7 +130,7 @@
 
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRosterStore } from '../../stores/rosterStore';
 import SchemaFieldRenderer from '../common/SchemaFieldRenderer.vue';
 import type { FieldDefinition } from '../../types/roster';
@@ -138,13 +138,33 @@ import type { FieldDefinition } from '../../types/roster';
 defineEmits<{ (e: 'close'): void }>();
 
 const rosterStore = useRosterStore();
-const { roster, isEmpty, entryCount, entriesByGroup, groupsSorted, summaryFields, selectedEntryId, isLoading, error } =
-  storeToRefs(rosterStore);
+const {
+  roster,
+  isEmpty,
+  entryCount,
+  entriesByGroup,
+  groupsSorted,
+  summaryFields,
+  selectedEntryId,
+  isLoading,
+  error,
+  updateVersion,
+} = storeToRefs(rosterStore);
 
-const { selectEntry, getEntryPrimaryKey, getEntryDisplayValue, getFieldsForGroup, refresh, initialize } = rosterStore;
+const { selectEntry, getEntryPrimaryKey, getEntryDisplayValue, getFieldsForGroup, refresh, initialize, destroy } =
+  rosterStore;
 
 /** 当前选中的分组 */
 const selectedGroup = ref<string | null>(null);
+
+// 监听 updateVersion 变化，用于调试和确保响应式更新
+watch(
+  updateVersion,
+  newVersion => {
+    console.log('[RosterPanel] updateVersion 变化:', newVersion, '当前条目数:', entryCount.value);
+  },
+  { immediate: false },
+);
 
 /** 当前分组的人员列表 */
 const currentGroupEntries = computed(() => {
@@ -195,6 +215,13 @@ onMounted(() => {
   if (groups.length > 0) {
     selectedGroup.value = groups[0];
   }
+  console.log('[RosterPanel] 面板已挂载，初始条目数:', entryCount.value);
+});
+
+onUnmounted(() => {
+  // 组件卸载时不销毁 store（因为可能被其他组件使用）
+  // 但可以在这里记录日志
+  console.log('[RosterPanel] 面板已卸载');
 });
 </script>
 
