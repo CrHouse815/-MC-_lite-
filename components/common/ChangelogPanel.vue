@@ -25,7 +25,7 @@
       <!-- 加载状态 -->
       <div v-if="isLoading" class="loading-state">
         <div class="loading-spinner"></div>
-        <p>正在加载更新日志...</p>
+        <p>{{ loadingMessage }}</p>
       </div>
 
       <!-- 错误状态 -->
@@ -43,12 +43,55 @@
     <div class="panel-footer">
       <div class="footer-info">
         <span class="update-time" v-if="lastUpdateTime"> 最后更新：{{ formatTime(lastUpdateTime) }} </span>
+        <span class="cache-status" v-if="cacheCleared"> ✓ 缓存已清理 </span>
       </div>
       <div class="footer-actions">
+        <button
+          class="btn-clear-cache"
+          @click="clearCacheAndRefresh"
+          :disabled="isLoading"
+          title="清理浏览器缓存并从 CDN 获取最新版本"
+        >
+          <span class="cache-icon">🗑️</span>
+          <span>清理缓存</span>
+        </button>
         <a class="btn-github" :href="githubUrl" target="_blank" rel="noopener noreferrer" title="在 GitHub 上查看">
           <span class="github-icon">📂</span>
           <span>GitHub</span>
         </a>
+      </div>
+    </div>
+
+    <!-- 缓存清理确认对话框 -->
+    <div v-if="showCacheDialog" class="cache-dialog-overlay" @click.self="showCacheDialog = false">
+      <div class="cache-dialog">
+        <div class="dialog-header">
+          <span class="dialog-icon">🗑️</span>
+          <h4>清理缓存</h4>
+        </div>
+        <div class="dialog-body">
+          <p>选择要执行的缓存清理操作：</p>
+          <div class="cache-options">
+            <label class="cache-option">
+              <input type="checkbox" v-model="cacheOptions.browserCache" />
+              <span class="option-text">
+                <strong>浏览器缓存</strong>
+                <small>清理本地浏览器存储的 jsdelivr 资源缓存</small>
+              </span>
+            </label>
+            <label class="cache-option">
+              <input type="checkbox" v-model="cacheOptions.forceRefresh" />
+              <span class="option-text">
+                <strong>强制刷新</strong>
+                <small>使用 no-cache 模式重新获取资源</small>
+              </span>
+            </label>
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn-cancel" @click="showCacheDialog = false">取消</button>
+          <button class="btn-confirm" @click="executeCacheClear" :disabled="!hasSelectedOption">确认清理</button>
+        </div>
       </div>
     </div>
   </div>
@@ -60,7 +103,7 @@ import { ref, computed, onMounted } from 'vue';
 // ============ 配置 ============
 
 /** 当前版本号 */
-const CURRENT_VERSION = '0.3.0';
+const CURRENT_VERSION = '0.3.2';
 
 /** GitHub 仓库信息 */
 const GITHUB_USER = 'CrHouse815';
@@ -87,6 +130,9 @@ const emit = defineEmits<{
 /** 是否正在加载 */
 const isLoading = ref(false);
 
+/** 加载提示信息 */
+const loadingMessage = ref('正在加载更新日志...');
+
 /** 错误信息 */
 const error = ref<string | null>(null);
 
@@ -95,6 +141,18 @@ const rawContent = ref('');
 
 /** 最后更新时间 */
 const lastUpdateTime = ref<Date | null>(null);
+
+/** 缓存是否已清理 */
+const cacheCleared = ref(false);
+
+/** 是否显示缓存清理对话框 */
+const showCacheDialog = ref(false);
+
+/** 缓存清理选项 */
+const cacheOptions = ref({
+  browserCache: true,
+  forceRefresh: true,
+});
 
 // ============ 计算属性 ============
 
@@ -110,13 +168,20 @@ const renderedContent = computed(() => {
   return parseMarkdown(rawContent.value);
 });
 
+/** 是否有选中的缓存清理选项 */
+const hasSelectedOption = computed(() => {
+  return cacheOptions.value.browserCache || cacheOptions.value.forceRefresh;
+});
+
 // ============ 方法 ============
 
 /**
  * 从 jsdelivr 获取 CHANGELOG.md
+ * @param forceNoCache 是否强制绕过缓存
  */
-const fetchChangelog = async () => {
+const fetchChangelog = async (forceNoCache: boolean = false) => {
   isLoading.value = true;
+  loadingMessage.value = '正在加载更新日志...';
   error.value = null;
 
   try {
@@ -124,9 +189,20 @@ const fetchChangelog = async () => {
     const timestamp = Date.now();
     const url = `${JSDELIVR_BASE_URL}/${CHANGELOG_PATH}?t=${timestamp}`;
 
-    console.log('[ChangelogPanel] 正在获取更新日志:', url);
+    console.log('[ChangelogPanel] 正在获取更新日志:', url, forceNoCache ? '(强制无缓存)' : '');
 
-    const response = await fetch(url);
+    // 根据参数决定是否强制绕过缓存
+    const fetchOptions: RequestInit = forceNoCache
+      ? {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            Pragma: 'no-cache',
+          },
+        }
+      : {};
+
+    const response = await fetch(url, fetchOptions);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -148,6 +224,124 @@ const fetchChangelog = async () => {
     }
   } finally {
     isLoading.value = false;
+  }
+};
+
+/**
+ * 打开缓存清理对话框
+ */
+const clearCacheAndRefresh = () => {
+  showCacheDialog.value = true;
+};
+
+/**
+ * 执行缓存清理
+ */
+const executeCacheClear = async () => {
+  showCacheDialog.value = false;
+  isLoading.value = true;
+  cacheCleared.value = false;
+
+  const steps: string[] = [];
+
+  try {
+    // 1. 清理浏览器缓存
+    if (cacheOptions.value.browserCache) {
+      loadingMessage.value = '正在清理浏览器缓存...';
+      await clearBrowserCache();
+      steps.push('浏览器缓存');
+      console.log('[ChangelogPanel] 浏览器缓存已清理');
+    }
+
+    // 2. 强制重新获取
+    if (cacheOptions.value.forceRefresh) {
+      loadingMessage.value = '正在强制刷新内容...';
+      await fetchChangelog(true);
+    } else {
+      await fetchChangelog(false);
+    }
+
+    cacheCleared.value = true;
+
+    // 3秒后隐藏"缓存已清理"提示
+    setTimeout(() => {
+      cacheCleared.value = false;
+    }, 3000);
+
+    if (steps.length > 0) {
+      console.log('[ChangelogPanel] 已清理:', steps.join(', '));
+    }
+  } catch (err: any) {
+    console.error('[ChangelogPanel] 缓存清理失败:', err);
+    error.value = `缓存清理失败: ${err.message || '未知错误'}`;
+  } finally {
+    isLoading.value = false;
+    loadingMessage.value = '正在加载更新日志...';
+  }
+};
+
+/**
+ * 清理浏览器缓存（使用 Cache API）
+ */
+const clearBrowserCache = async (): Promise<void> => {
+  try {
+    // 尝试使用 Cache API 清理
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      const jsdelivrCaches = cacheNames.filter(
+        name => name.includes('jsdelivr') || name.includes('workbox') || name.includes('runtime'),
+      );
+
+      for (const cacheName of jsdelivrCaches) {
+        await caches.delete(cacheName);
+        console.log('[ChangelogPanel] 已删除缓存:', cacheName);
+      }
+
+      // 尝试从所有缓存中删除 jsdelivr 相关的条目
+      for (const cacheName of cacheNames) {
+        try {
+          const cache = await caches.open(cacheName);
+          const requests = await cache.keys();
+          for (const request of requests) {
+            if (request.url.includes('jsdelivr.net') || request.url.includes(GITHUB_USER)) {
+              await cache.delete(request);
+              console.log('[ChangelogPanel] 已删除缓存条目:', request.url);
+            }
+          }
+        } catch (e) {
+          // 忽略单个缓存的错误
+        }
+      }
+    }
+
+    // 清理 localStorage 中可能存在的缓存数据
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.includes('jsdelivr') || key.includes('changelog') || key.includes('CHANGELOG'))) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => {
+      localStorage.removeItem(key);
+      console.log('[ChangelogPanel] 已删除 localStorage:', key);
+    });
+
+    // 清理 sessionStorage 中可能存在的缓存数据
+    const sessionKeysToRemove: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && (key.includes('jsdelivr') || key.includes('changelog') || key.includes('CHANGELOG'))) {
+        sessionKeysToRemove.push(key);
+      }
+    }
+    sessionKeysToRemove.forEach(key => {
+      sessionStorage.removeItem(key);
+      console.log('[ChangelogPanel] 已删除 sessionStorage:', key);
+    });
+  } catch (err) {
+    console.warn('[ChangelogPanel] 清理浏览器缓存时出现警告:', err);
+    // 不抛出错误，继续执行
   }
 };
 
@@ -783,6 +977,35 @@ onMounted(() => {
   gap: var(--spacing-sm);
 }
 
+.btn-clear-cache {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--error-color);
+    border-color: var(--error-color);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .cache-icon {
+    font-size: 14px;
+  }
+}
+
 .btn-github {
   display: flex;
   align-items: center;
@@ -804,6 +1027,176 @@ onMounted(() => {
 
   .github-icon {
     font-size: 14px;
+  }
+}
+
+.cache-status {
+  color: var(--success-color);
+  font-size: var(--font-xs);
+  margin-left: var(--spacing-sm);
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+// ============ 缓存清理对话框 ============
+.cache-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+.cache-dialog {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+
+  .dialog-icon {
+    font-size: 20px;
+  }
+
+  h4 {
+    margin: 0;
+    font-size: var(--font-md);
+    font-weight: 600;
+    color: var(--text-color);
+  }
+}
+
+.dialog-body {
+  padding: var(--spacing-lg);
+
+  > p {
+    margin: 0 0 var(--spacing-md);
+    font-size: var(--font-sm);
+    color: var(--text-secondary);
+  }
+}
+
+.cache-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.cache-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    border-color: var(--primary-color);
+  }
+
+  input[type='checkbox'] {
+    margin-top: 2px;
+    cursor: pointer;
+    accent-color: var(--primary-color);
+  }
+
+  .option-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    strong {
+      font-size: var(--font-sm);
+      color: var(--text-color);
+    }
+
+    small {
+      font-size: var(--font-xs);
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+  }
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-top: 1px solid var(--border-color);
+}
+
+.btn-cancel {
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text-color);
+  }
+}
+
+.btn-confirm {
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: var(--primary-color);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-sm);
+  color: white;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    background: var(--primary-hover);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 }
 
@@ -841,6 +1234,31 @@ onMounted(() => {
 
   .panel-footer {
     padding: var(--spacing-xs) var(--spacing-md);
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+  }
+
+  .footer-info {
+    width: 100%;
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .footer-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .cache-dialog {
+    width: 95%;
+    margin: var(--spacing-md);
+  }
+
+  .dialog-body {
+    padding: var(--spacing-md);
+  }
+
+  .dialog-footer {
+    padding: var(--spacing-sm) var(--spacing-md);
   }
 }
 </style>

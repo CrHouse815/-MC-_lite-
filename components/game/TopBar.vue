@@ -32,10 +32,9 @@
       </div>
     </div>
 
-    <!-- 中间：版本号 -->
+    <!-- 中间：版本号（仅显示，不可点击） -->
     <div class="top-bar-center">
-      <div class="version-info" @click="$emit('open-changelog')" title="查看更新日志">
-        <span class="version-icon">📋</span>
+      <div class="version-info">
         <span class="version-text">MClite</span>
         <span class="version-number">v0.3.0</span>
       </div>
@@ -89,7 +88,6 @@ const props = withDefaults(defineProps<Props>(), {
 defineEmits<{
   (e: 'toggle-fullscreen'): void;
   (e: 'toggle-theme'): void;
-  (e: 'open-changelog'): void;
 }>();
 
 // ============ 计算属性 ============
@@ -304,17 +302,6 @@ const periodClass = computed(() => {
   background: rgba(99, 102, 241, 0.15);
   border: 1px solid rgba(99, 102, 241, 0.3);
   border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-
-  &:hover {
-    background: rgba(99, 102, 241, 0.25);
-    border-color: rgba(99, 102, 241, 0.5);
-  }
-
-  .version-icon {
-    font-size: 14px;
-  }
 
   .version-text {
     font-size: var(--font-sm);
@@ -382,10 +369,15 @@ const periodClass = computed(() => {
 
   .top-bar-left {
     gap: 4px;
+    flex: 1;
+    min-width: 0; // 允许收缩
+    overflow: hidden;
   }
 
   .status-item {
     padding: 4px 8px;
+    flex-shrink: 1;
+    min-width: 0;
 
     .status-icon {
       font-size: 12px;
@@ -393,15 +385,19 @@ const periodClass = computed(() => {
 
     .status-value {
       font-size: var(--font-xs);
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
   }
 
   .date-display {
     min-width: auto;
+    flex-shrink: 1;
   }
 
   .period-display {
     min-width: auto;
+    flex-shrink: 1;
   }
 
   .period-badge {
@@ -411,15 +407,26 @@ const periodClass = computed(() => {
 
   .location-display {
     max-width: 100px;
+    // 平板竖屏时隐藏地点
+    display: none;
   }
 
   .connection-status {
     display: none;
   }
 
+  .top-bar-center {
+    flex: 0 0 auto; // 不要自动扩展
+  }
+
+  .top-bar-right {
+    flex-shrink: 0; // 确保右侧按钮不会被压缩
+  }
+
   .tool-btn {
     width: 36px;
     height: 36px;
+    flex-shrink: 0;
 
     .btn-icon {
       font-size: 16px;
@@ -429,10 +436,6 @@ const periodClass = computed(() => {
   .version-info {
     padding: 3px 6px;
     gap: 3px;
-
-    .version-icon {
-      font-size: 12px;
-    }
 
     .version-text {
       font-size: var(--font-xs);
@@ -445,22 +448,45 @@ const periodClass = computed(() => {
   }
 }
 
-// ============ 超小屏幕响应式 ============
+// ============ 超小屏幕响应式（手机竖屏） ============
 @media (max-width: 480px) {
+  .top-bar {
+    height: 44px;
+    padding: 0 var(--spacing-xs);
+  }
+
   .top-bar-left {
     gap: 2px;
+    flex: 1;
+    min-width: 0;
   }
 
   .status-item {
-    padding: 3px 6px;
+    padding: 2px 4px;
 
     .status-icon {
-      font-size: 11px;
+      font-size: 10px;
     }
 
     .status-value {
-      font-size: 11px;
+      font-size: 10px;
     }
+  }
+
+  // 超小屏只显示日期和时段
+  .date-display {
+    flex-shrink: 1;
+    min-width: 0;
+
+    .status-value {
+      max-width: 70px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .period-display {
+    flex-shrink: 0;
   }
 
   .period-badge {
@@ -469,27 +495,69 @@ const periodClass = computed(() => {
   }
 
   .location-display {
-    max-width: 80px;
-
-    // 超小屏幕隐藏地点
     display: none;
   }
 
-  .version-info {
-    padding: 2px 4px;
+  .top-bar-center {
+    // 超小屏隐藏版本信息，腾出空间给按钮
+    display: none;
+  }
+
+  .top-bar-right {
+    flex-shrink: 0;
+    gap: 4px;
+  }
+
+  .tool-btn {
+    width: 32px;
+    height: 32px;
+
+    .btn-icon {
+      font-size: 14px;
+    }
+  }
+}
+
+// ============ 极小屏幕响应式（<360px） ============
+@media (max-width: 360px) {
+  .top-bar {
+    height: 40px;
+    padding: 0 4px;
+  }
+
+  .top-bar-left {
     gap: 2px;
+  }
 
-    .version-icon {
-      display: none;
-    }
+  .status-item {
+    padding: 2px 3px;
 
-    .version-text {
-      font-size: 10px;
-    }
-
-    .version-number {
+    .status-icon {
       font-size: 9px;
-      padding: 0 3px;
+    }
+
+    .status-value {
+      font-size: 9px;
+    }
+  }
+
+  .date-display {
+    .status-value {
+      max-width: 60px;
+    }
+  }
+
+  .period-badge {
+    font-size: 8px;
+    padding: 1px 3px;
+  }
+
+  .tool-btn {
+    width: 28px;
+    height: 28px;
+
+    .btn-icon {
+      font-size: 12px;
     }
   }
 }

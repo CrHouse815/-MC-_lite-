@@ -16,7 +16,6 @@
       :game-location="gameLocation"
       @toggle-fullscreen="toggleFullscreen"
       @toggle-theme="toggleTheme"
-      @open-changelog="showChangelog = true"
     />
 
     <!-- 中间区域：主内容 + 右侧导航 -->
