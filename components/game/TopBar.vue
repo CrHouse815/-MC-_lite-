@@ -36,7 +36,7 @@
     <div class="top-bar-center">
       <div class="version-info">
         <span class="version-text">MClite</span>
-        <span class="version-number">v0.3.0</span>
+        <span class="version-number">v0.3.2</span>
       </div>
     </div>
 
