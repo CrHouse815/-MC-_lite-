@@ -42,7 +42,7 @@
           "id": {
             "label": "员工编号",
             "type": "string",
-            "description": "唯一标识符，格式为No.XXX",
+            "description": "唯一标识符，格式为NoXXX",
             "showInList": true,
             "order": 0
           },
@@ -175,8 +175,8 @@
       },
       "entries": {
         "$meta": { "extensible": true },
-        "No.001": {
-          "id": "No.001",
+        "No001": {
+          "id": "No001",
           "name": "沈凌汐",
           "gender": "女",
           "age": 27,
@@ -191,8 +191,8 @@
           "rating": "S级",
           "notes": "行动一科负责人，业务能力出众，管理风格严格。"
         },
-        "No.002": {
-          "id": "No.002",
+        "No002": {
+          "id": "No002",
           "name": "苏淼雨",
           "gender": "女",
           "age": 23,
@@ -207,8 +207,8 @@
           "rating": "A级",
           "notes": "综合管理科文员，负责文件整理和来访接待。性格温顺，工作认真。"
         },
-        "No.003": {
-          "id": "No.003",
+        "No003": {
+          "id": "No003",
           "name": "白清妍",
           "gender": "女",
           "age": 25,
