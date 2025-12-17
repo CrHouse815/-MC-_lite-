@@ -126,17 +126,11 @@ export class WorldbookService {
         });
         console.log(`[WorldbookService] 更新条目"${entryName}"成功，内容长度: ${content.length}`);
       } else {
-        // 创建新条目
-        const config = WORLDBOOK_ENTRY_CONFIGS[entryName] || {
-          name: entryName,
-          enabled: true,
-          depth: 2,
-          order: 100,
-          role: 'system',
-        };
-
-        await this.createEntry(entryName, content, config);
-        console.log(`[WorldbookService] 创建条目"${entryName}"成功，内容长度: ${content.length}`);
+        // 【修复】不再自动创建世界书条目
+        // 原因：自动创建条目会在新卡导入时抢占原世界书的位置
+        // 如果条目不存在，只记录日志，不创建
+        console.log(`[WorldbookService] 条目"${entryName}"不存在，跳过更新（不自动创建）`);
+        return false;
       }
 
       return true;

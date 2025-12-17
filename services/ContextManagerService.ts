@@ -33,7 +33,7 @@ export class ContextManagerService {
    * 当设置为 false 时，将跳过所有世界书条目的创建和更新
    * 这允许用户使用外挂的世界书来提供上下文内容
    */
-  private enabled: boolean = false;
+  private enabled: boolean = true;
 
   constructor() {
     this.state = {
