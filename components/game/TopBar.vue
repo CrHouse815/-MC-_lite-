@@ -1,0 +1,412 @@
+<!--
+  MClite - 顶部状态栏组件
+  职场模拟游戏 - 显示游戏时间、地点和系统菜单
+  从后台MVU变量读取时间和地点信息
+-->
+<template>
+  <header class="top-bar">
+    <!-- 左侧：游戏状态信息 -->
+    <div class="top-bar-left">
+      <!-- 日期显示 -->
+      <div class="status-item date-display">
+        <span class="status-icon">📅</span>
+        <span class="status-value">{{ displayDate }}</span>
+      </div>
+
+      <!-- 时段显示 -->
+      <div class="status-item period-display">
+        <span class="status-icon">🕐</span>
+        <span class="period-badge" :class="periodClass">{{ displayPeriod }}</span>
+      </div>
+
+      <!-- 地点显示 -->
+      <div class="status-item location-display">
+        <span class="status-icon">📍</span>
+        <span class="status-value location-value">{{ displayLocation }}</span>
+      </div>
+
+      <!-- 连接状态 -->
+      <div class="status-item connection-status" :class="connectionStatus">
+        <span class="status-dot"></span>
+        <span class="status-text">{{ statusText }}</span>
+      </div>
+    </div>
+
+    <!-- 中间：留空 -->
+    <div class="top-bar-center"></div>
+
+    <!-- 右侧：主题切换 + 全屏按钮 -->
+    <div class="top-bar-right">
+      <button
+        class="tool-btn theme-btn"
+        :title="isDarkTheme ? '切换到浅色模式' : '切换到深色模式'"
+        @click="$emit('toggle-theme')"
+      >
+        <span class="btn-icon">{{ isDarkTheme ? '☀️' : '🌙' }}</span>
+      </button>
+      <button class="tool-btn" :title="isFullscreen ? '退出全屏' : '全屏显示'" @click="$emit('toggle-fullscreen')">
+        <span class="btn-icon">{{ isFullscreen ? '⬜' : '⛶' }}</span>
+      </button>
+    </div>
+  </header>
+</template>
+
+<script setup lang="ts">
+import { computed } from 'vue';
+
+// ============ Props ============
+interface Props {
+  /** 连接状态 */
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected';
+  /** 是否全屏 */
+  isFullscreen?: boolean;
+  /** 是否深色主题 */
+  isDarkTheme?: boolean;
+  /** 游戏日期（从MVU变量读取，格式如"2024年3月15日"） */
+  gameDate?: string;
+  /** 游戏时段（从MVU变量读取，如"上午"、"午休"、"下午"、"加班时间"） */
+  gamePeriod?: string;
+  /** 当前地点（从MVU变量读取，如"行动一科办公室"） */
+  gameLocation?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  connectionStatus: 'connected',
+  isFullscreen: false,
+  isDarkTheme: false,
+  gameDate: '',
+  gamePeriod: '',
+  gameLocation: '',
+});
+
+// ============ Emits ============
+defineEmits<{
+  (e: 'toggle-fullscreen'): void;
+  (e: 'toggle-theme'): void;
+}>();
+
+// ============ 计算属性 ============
+
+/** 状态文本 */
+const statusText = computed(() => {
+  switch (props.connectionStatus) {
+    case 'connected':
+      return '在线';
+    case 'connecting':
+      return '连接中...';
+    case 'disconnected':
+      return '离线';
+    default:
+      return '未知';
+  }
+});
+
+/** 显示的日期（如果没有后台数据则显示默认值） */
+const displayDate = computed(() => {
+  return props.gameDate || '等待数据...';
+});
+
+/** 显示的时段（如果没有后台数据则显示默认值） */
+const displayPeriod = computed(() => {
+  return props.gamePeriod || '---';
+});
+
+/** 显示的地点（如果没有后台数据则显示默认值） */
+const displayLocation = computed(() => {
+  return props.gameLocation || '未知地点';
+});
+
+/** 时段样式类 - 根据时段文本动态设置 */
+const periodClass = computed(() => {
+  const period = props.gamePeriod || '';
+  if (period.includes('上午') || period.includes('早')) return 'period-morning';
+  if (period.includes('午休') || period.includes('中午')) return 'period-noon';
+  if (period.includes('下午')) return 'period-afternoon';
+  if (period.includes('傍晚') || period.includes('晚')) return 'period-evening';
+  if (period.includes('加班') || period.includes('夜') || period.includes('深夜')) return 'period-night';
+  return 'period-default';
+});
+</script>
+
+<style lang="scss" scoped>
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 var(--spacing-md);
+  background: var(--office-header);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 100;
+}
+
+// ============ 左侧区域 ============
+.top-bar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+// ============ 通用状态项样式 ============
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .status-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .status-value {
+    font-size: var(--font-sm);
+    font-weight: 500;
+    color: #ffffff;
+    white-space: nowrap;
+  }
+}
+
+// ============ 日期显示 ============
+.date-display {
+  min-width: 110px;
+}
+
+// ============ 时段显示 ============
+.period-display {
+  min-width: 70px;
+}
+
+.period-badge {
+  padding: 3px 10px;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+
+  &.period-morning {
+    background: rgba(255, 193, 7, 0.25);
+    color: #ffc107;
+    box-shadow: inset 0 0 0 1px rgba(255, 193, 7, 0.3);
+  }
+
+  &.period-noon {
+    background: rgba(255, 152, 0, 0.25);
+    color: #ff9800;
+    box-shadow: inset 0 0 0 1px rgba(255, 152, 0, 0.3);
+  }
+
+  &.period-afternoon {
+    background: rgba(255, 87, 34, 0.25);
+    color: #ff7043;
+    box-shadow: inset 0 0 0 1px rgba(255, 87, 34, 0.3);
+  }
+
+  &.period-evening {
+    background: rgba(156, 39, 176, 0.25);
+    color: #ce93d8;
+    box-shadow: inset 0 0 0 1px rgba(156, 39, 176, 0.3);
+  }
+
+  &.period-night {
+    background: rgba(63, 81, 181, 0.25);
+    color: #9fa8da;
+    box-shadow: inset 0 0 0 1px rgba(63, 81, 181, 0.3);
+  }
+
+  &.period-default {
+    background: rgba(158, 158, 158, 0.25);
+    color: #bdbdbd;
+    box-shadow: inset 0 0 0 1px rgba(158, 158, 158, 0.3);
+  }
+}
+
+// ============ 地点显示 ============
+.location-display {
+  max-width: 180px;
+
+  .location-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+// ============ 连接状态 ============
+.connection-status {
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    transition: background-color var(--transition-normal);
+  }
+
+  .status-text {
+    font-size: var(--font-xs);
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  &.connected .status-dot {
+    background: var(--success-color);
+    box-shadow: 0 0 6px var(--success-color);
+  }
+
+  &.connecting .status-dot {
+    background: var(--warning-color);
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  &.disconnected .status-dot {
+    background: var(--error-color);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+// ============ 中间区域 ============
+.top-bar-center {
+  flex: 1;
+}
+
+// ============ 右侧区域 ============
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  .btn-icon {
+    font-size: 18px;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  &.theme-btn {
+    .btn-icon {
+      font-size: 16px;
+    }
+  }
+}
+
+// ============ 响应式 ============
+@media (max-width: 768px) {
+  .top-bar {
+    height: 48px;
+    padding: 0 var(--spacing-sm);
+  }
+
+  .top-bar-left {
+    gap: 4px;
+  }
+
+  .status-item {
+    padding: 4px 8px;
+
+    .status-icon {
+      font-size: 12px;
+    }
+
+    .status-value {
+      font-size: var(--font-xs);
+    }
+  }
+
+  .date-display {
+    min-width: auto;
+  }
+
+  .period-display {
+    min-width: auto;
+  }
+
+  .period-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .location-display {
+    max-width: 100px;
+  }
+
+  .connection-status {
+    display: none;
+  }
+
+  .tool-btn {
+    width: 36px;
+    height: 36px;
+
+    .btn-icon {
+      font-size: 16px;
+    }
+  }
+}
+
+// ============ 超小屏幕响应式 ============
+@media (max-width: 480px) {
+  .top-bar-left {
+    gap: 2px;
+  }
+
+  .status-item {
+    padding: 3px 6px;
+
+    .status-icon {
+      font-size: 11px;
+    }
+
+    .status-value {
+      font-size: 11px;
+    }
+  }
+
+  .period-badge {
+    font-size: 9px;
+    padding: 2px 4px;
+  }
+
+  .location-display {
+    max-width: 80px;
+
+    // 超小屏幕隐藏地点
+    display: none;
+  }
+}
+</style>

@@ -1,0 +1,352 @@
+<description>
+# MClite 变量结构说明 v2.0
+
+本文档描述 MClite 系统的变量结构，采用 Schema-Driven 可扩展架构。
+变量根路径: `MC`
+
+---
+
+# 系统变量
+路径: `MC.系统`
+
+当前地点: 当前场景所在位置
+当前时间: 包含日期和时段的时间对象
+- 日期: 格式为"YYYY年M月D日"
+- 时段: 当前所处的时间段
+
+说明: 系统变量记录全局状态信息。所有字段均可根据世界观需要自定义扩展。
+
+---
+
+# 花名册（Schema-Driven 结构）
+路径: `MC.花名册`
+
+花名册采用 Schema-Driven 架构，支持完全自定义的字段结构。由三部分组成：
+1. `$meta` - 元信息（标记可扩展性）
+2. `$schema` - 结构定义（定义字段、分组）
+3. `entries` - 实际数据条目
+
+## $schema 配置
+格式: `"$schema": { "primaryKey": "主键字段名", "displayField": "显示字段名", "groupByField": "分组字段名", "fields": { "$meta": { "extensible": true }, ... }, "groups": { "$meta": { "extensible": true }, ... } }`
+
+说明: $schema 定义花名册的数据结构。所有配置项均为可选，可根据需要添加。
+- primaryKey: 用于唯一标识条目的字段名
+- displayField: 用于列表展示的字段名
+- groupByField: 用于分组显示的字段名
+- fields: 字段定义集合，可扩展
+- groups: 字段分组定义，可扩展
+
+## fields 字段定义
+格式: `"字段ID": { "label": "显示名称", "type": "字段类型", "description": "字段描述", "showInList": true/false, "showInSummary": true/false, "order": 数字, "options": [], "default": 默认值 }`
+
+说明: 定义花名册中的字段。每个字段使用唯一ID作为键。
+- label: 字段的显示名称
+- type: 字段类型，支持 string/number/text/enum/tags/boolean 等
+- description: 字段描述，用于提示AI理解字段用途
+- showInList: 是否在列表视图显示
+- showInSummary: 是否在摘要卡片显示
+- order: 显示顺序，数字越小越靠前
+- options: 当type为enum时的可选值列表
+- default: 字段的默认值
+
+## groups 分组定义
+格式: `"分组ID": { "label": "分组名称", "order": 数字, "collapsed": true/false, "fields": ["字段ID1", "字段ID2", ...] }`
+
+说明: 定义字段的分组方式。每个分组使用唯一ID作为键。
+- label: 分组的显示名称
+- order: 分组显示顺序
+- collapsed: 是否默认折叠
+- fields: 包含的字段ID列表
+
+## entries 数据条目
+格式: `"条目ID": { "字段1": 值, "字段2": 值, ... }`
+
+说明: 存放实际的数据条目。以条目ID为键，值为包含所有字段数据的对象。条目的字段应与 $schema.fields 中定义的字段对应。
+
+---
+
+# 文档（多文档并行 + 递归树形结构）
+路径: `MC.文档`
+
+文档容器支持多份文档并行存在，每份文档采用统一节点类型的递归树形结构。
+
+## 文档容器
+格式: `"MC.文档": { "$meta": { "extensible": true, "template": { "title": "", "description": "", "order": 0, "sections": { "$meta": { "extensible": true } } } }, "文档名称1": { ... }, "文档名称2": { ... } }`
+
+说明: 文档容器是可扩展的对象，使用文档名称作为键。$meta.template 定义了新文档应遵循的结构模板。
+
+## 单份文档结构
+格式: `"文档名称": { "title": "文档标题", "description": "文档描述", "order": 排序数字, "sections": { "$meta": { "extensible": true }, "节点ID": { ... }, ... } }`
+
+说明: 每份文档包含标题、描述、排序和节点集合。sections 为可扩展对象。
+- title: 文档的标题
+- description: 文档的描述信息
+- order: 文档在列表中的排序
+- sections: 节点集合，可扩展
+
+## section 节点结构
+格式: `"节点ID": { "title": "节点标题", "content": "节点内容", "order": 排序数字, "children": { "$meta": { "extensible": true }, ... } }`
+
+说明: 节点采用递归结构，每个节点可包含子节点，支持任意层级嵌套。
+- title: 节点的标题
+- content: 节点的正文内容（可为空）
+- order: 节点在同级中的排序
+- children: 子节点集合，可扩展，结构与父节点相同
+
+---
+
+# 可扩展性机制
+
+## $meta.extensible
+所有带有 `"$meta": { "extensible": true }` 的对象都支持动态添加新键值对。这是系统可扩展性的核心标记。
+
+## $meta.template
+带有 `template` 的 `$meta` 表示该对象的新条目应遵循 template 中定义的结构。
+
+示例:
+```json
+"fields": {
+  "$meta": {
+    "extensible": true,
+    "template": {
+      "label": "",
+      "type": "string",
+      "description": ""
+    }
+  }
+}
+```
+
+说明: 表示可以向 fields 中添加新字段，新字段应包含 label、type、description 等属性。template 仅作为参考模板，实际添加时可根据需要增减属性。
+
+---
+
+# 自定义扩展说明
+
+本系统设计的核心理念是**高度可扩展性**：
+
+1. **字段可自定义**: 花名册的字段完全由 $schema.fields 定义，可随时添加新字段
+2. **分组可自定义**: 字段分组由 $schema.groups 定义，可随时重组字段
+3. **文档可并行**: 文档容器支持同时存在多份不同的文档
+4. **结构可嵌套**: 文档节点支持无限层级递归嵌套
+5. **系统可扩展**: MC 根对象本身也是可扩展的，可添加全新的顶级模块
+
+</description>
+
+
+<变量更新规则>
+严格按照以下规则和格式进行输出，并确定哪个变量是否需要更新，禁止额外添加标签：
+
+rule:
+  description:
+    - 根据叙事内容分析需要更新的变量，在响应末尾输出变量更新指令
+    - 可用指令共4个：`_.set`、`_.assign`、`_.remove`、`_.add`
+    - _.set: 设置值，支持2-3个参数（仅用于修改已存在的值）
+    - _.assign: 向对象添加新键值对，支持2-3个参数（用于创建新条目或添加新属性）
+    - _.remove: 从对象删除键，支持1-2个参数
+    - _.add: 数值增减，仅支持2个参数，仅用于数字类型
+    - 如需添加或删除多个值，需多次调用指令
+    - 数字参数支持数学表达式
+  
+  ## ⚠️⚠️⚠️ 关键约束（必须严格遵守，违反将导致错误）⚠️⚠️⚠️
+  
+  ### 核心原则：_.set 和 _.assign 的本质区别
+  
+  | 指令 | 用途 | 路径要求 |
+  |------|------|----------|
+  | `_.assign(父路径, 键名, 值)` | 在父对象中创建/覆盖一个键 | 父路径必须存在且是对象 |
+  | `_.set(完整路径, 旧值, 新值)` | 修改已存在的值 | 完整路径必须已存在 |
+  
+  ### 🚨 条目操作的黄金法则（最重要！）
+  
+  **创建/覆盖整个条目** → 使用 `_.assign`，路径到 `entries`：
+  ```javascript
+  // ✅ 正确：在 entries 下创建条目 No.001
+  _.assign('MC.花名册.entries', 'No.001', { "id": "No.001", "name": "xxx", ... });
+  ```
+  
+  **修改条目内的单个字段** → 使用 `_.set`，路径到具体字段：
+  ```javascript
+  // ✅ 正确：修改已存在条目的某个字段（前提是 No.001 已存在）
+  _.set('MC.花名册.entries.No.001.name', '旧名字', '新名字');
+  ```
+  
+  ### ❌ 常见错误（会导致 "path does not exist" 错误）
+  
+  ```javascript
+  // ❌ 错误：用 _.set 去"更新"一个不存在的条目
+  _.set('MC.花名册.entries.No.001', {...}, {...});  // 如果 No.001 不存在，会失败！
+  
+  // ❌ 错误：用 _.set 去修改不存在条目的字段
+  _.set('MC.花名册.entries.No.001.name', null, '张三');  // 如果 No.001 不存在，会失败！
+  
+  // ❌ 错误：用 _.assign 在不存在的条目上添加字段
+  _.assign('MC.花名册.entries.No.001', 'name', '张三');  // 如果 No.001 不存在，会失败！
+  ```
+  
+  ### ✅ 正确做法总结
+  
+  | 场景 | 正确写法 |
+  |------|----------|
+  | 创建新条目 | `_.assign('MC.花名册.entries', 'No.004', { 完整对象 });` |
+  | 覆盖已有条目（改很多字段） | `_.assign('MC.花名册.entries', 'No.001', { 新的完整对象 });` |
+  | 修改条目的单个字段 | `_.set('MC.花名册.entries.No.001.字段名', 旧值, 新值);` |
+  | 为条目添加新字段 | `_.assign('MC.花名册.entries.No.001', '新字段名', 新字段值);` |
+  
+  analysis:
+    - 数据结构与路径规则:
+        - 花名册条目: 路径格式为 `MC.花名册.entries.条目ID.字段名`
+        - 文档节点: 路径格式为 `MC.文档.文档名.sections.节点ID.属性名`
+        - 子节点: 路径格式为 `MC.文档.文档名.sections.节点ID.children.子节点ID.属性名`
+        - Schema字段: 路径格式为 `MC.花名册.$schema.fields.字段ID.属性名`
+    - 操作规则:
+        - 先创建后修改: 必须先用 `_.assign` 创建条目，才能对其内部属性进行修改
+        - 路径精确: 修改时路径需精确到具体属性
+        - 中文注释: 每条指令前用 `//` 添加中文注释说明原因
+        - 非必要不删除: 除非明确需要，否免使用 `_.remove`
+        - **确认存在再修改**: 使用 _.set 修改字段前，确保该条目已存在于数据中
+
+  ## 你只能使用 _.set、_.add、_.assign、_.remove 这四个指令
+
+  操作示例:
+    - Schema操作:
+        - 添加新字段定义:
+          `_.assign('MC.花名册.$schema.fields', '新字段ID', { "label": "显示名称", "type": "string", "order": 10 });`
+        - 修改现有字段定义:
+          `_.set('MC.花名册.$schema.fields.字段ID.label', '旧名称', '新名称');`
+        - 将字段加入分组:
+          `_.set('MC.花名册.$schema.groups.分组ID.fields', ["旧字段1"], ["旧字段1", "新字段ID"]);`
+    
+    - 花名册操作:
+        - 创建新条目（必须用 assign，路径到 entries）:
+          `_.assign('MC.花名册.entries', '条目ID', { "id": "条目ID", "name": "姓名", "字段1": "值1", "字段2": "值2" });`
+        - 覆盖/更新整个条目（也用 assign，路径到 entries）:
+          `_.assign('MC.花名册.entries', '条目ID', { "id": "条目ID", "字段1": "新值1", "字段2": "新值2", ... });`
+        - 修改已存在条目的单个属性（用 set，路径到具体字段）:
+          `_.set('MC.花名册.entries.条目ID.字段名', '旧值', '新值');`
+        - 数值增减:
+          `_.add('MC.花名册.entries.条目ID.数值字段', 增量);`
+        - 为已存在条目添加新字段:
+          `_.assign('MC.花名册.entries.条目ID', '新字段名', '新字段值');`
+    
+    - 文档操作:
+        - 添加新文档:
+          `_.assign('MC.文档', '文档名', { "title": "标题", "description": "描述", "order": 1, "sections": { "$meta": { "extensible": true } } });`
+        - 添加章节:
+          `_.assign('MC.文档.文档名.sections', '章节ID', { "title": "章节标题", "content": "章节内容", "order": 1, "children": { "$meta": { "extensible": true } } });`
+        - 添加子节点:
+          `_.assign('MC.文档.文档名.sections.章节ID.children', '子节点ID', { "title": "标题", "content": "内容", "order": 1 });`
+        - 修改节点内容:
+          `_.set('MC.文档.文档名.sections.章节ID.content', '旧内容', '新内容');`
+    
+    - 系统变量操作:
+        - 更新当前地点:
+          `_.set('MC.系统.当前地点', '旧地点', '新地点');`
+        - 更新时间:
+          `_.set('MC.系统.当前时间.时段', '上午', '下午');`
+
+  format: |-
+    <UpdateVariable>
+        //${原因说明}
+        _.set('${路径}', ${旧值}?, ${新值});
+        //${原因说明}
+        _.assign('${路径}', ${键}?, ${值});
+        //${原因说明}
+        _.remove('${路径}', ${键}?);
+        //${原因说明}
+        _.add('${路径}', ${增量});
+    </UpdateVariable>
+
+  example: |-
+    <UpdateVariable>
+        // 时间推进到下午
+        _.set('MC.系统.当前时间.时段', '上午', '下午');
+        
+        // 地点转移到会议室
+        _.set('MC.系统.当前地点', '综合管理科办公室', '大会议室');
+        
+        // 添加新出场人物到花名册（正确：一次性创建完整条目）
+        _.assign('MC.花名册.entries', 'No.004', {
+          "id": "No.004",
+          "name": "李雨薇",
+          "gender": "女",
+          "age": 22,
+          "department": "技术支援科",
+          "position": "技术员",
+          "rank": "科员",
+          "yearsOfService": 1
+        });
+        
+        // 更新已存在人员的单个字段（正确：No.001 已存在于数据中）
+        _.set('MC.花名册.entries.No.001.notes', '行动一科负责人。', '行动一科负责人，今日主持了部门会议。');
+        
+        // 为已存在人员添加新字段（正确：No.001 已存在，用 assign 添加新属性）
+        _.assign('MC.花名册.entries.No.001', 'specialSkill', '格斗技巧');
+        
+        // 批量更新条目的多个字段（正确：使用 assign 覆盖整个条目）
+        _.assign('MC.花名册.entries', 'No.002', {"id":"No.002","name":"苏淼雨","age":24,"notes":"今日表现优秀"});
+        
+        // 为花名册添加新字段定义
+        _.assign('MC.花名册.$schema.fields', 'specialSkill', {
+          "label": "特殊技能",
+          "type": "text",
+          "description": "人员的特殊技能描述",
+          "order": 25
+        });
+        
+        // 将新字段加入分组
+        _.set('MC.花名册.$schema.groups.evaluation.fields', ["personality", "rating"], ["personality", "rating", "specialSkill"]);
+        
+        // 添加新文档
+        _.assign('MC.文档', '培训手册', {
+          "title": "培训手册",
+          "description": "新员工培训指南",
+          "order": 3,
+          "sections": { "$meta": { "extensible": true } }
+        });
+        
+        // 为新文档添加章节
+        _.assign('MC.文档.培训手册.sections', '第一章', {
+          "title": "第一章 入职须知",
+          "content": "欢迎加入本处...",
+          "order": 1,
+          "children": { "$meta": { "extensible": true } }
+        });
+    </UpdateVariable>
+
+  ## ⚠️ 错误示例（以下写法会导致运行时错误）
+  
+  ```javascript
+  // ❌ 错误1：用 _.set 更新整个条目（最常见错误！）
+  _.set('MC.花名册.entries.No.001', {...}, {...});  // 如果 No.001 不存在，会报 "path does not exist"
+  
+  // ✅ 正确：应该用 _.assign，路径到 entries
+  _.assign('MC.花名册.entries', 'No.001', { 完整的条目对象 });
+  
+  // ❌ 错误2：对不存在的条目逐个添加字段
+  _.assign('MC.花名册.entries.No.999', 'name', '张三');  // No.999 不存在，会报错
+  _.assign('MC.花名册.entries.No.999', 'age', 25);       // 同样会失败
+  
+  // ✅ 正确：应该一次性创建完整条目
+  _.assign('MC.花名册.entries', 'No.999', {"id":"No.999","name":"张三","age":25});
+  
+  // ❌ 错误3：对不存在的路径使用 set 修改字段
+  _.set('MC.花名册.entries.No.999.name', null, '张三');  // No.999 不存在
+  
+  // ❌ 错误4：假设条目存在而直接修改字段
+  _.set('MC.花名册.entries.No.888.position', '科员', '主任');  // 如果 No.888 不存在会失败
+  ```
+  
+  ### 🔑 记住这条核心规则
+  
+  **要创建或覆盖 entries 下的条目，必须用**：
+  ```javascript
+  _.assign('MC.花名册.entries', '条目ID', { ... });  // 路径到 entries，键名是条目ID
+  ```
+  
+  **不要用**：
+  ```javascript
+  _.set('MC.花名册.entries.条目ID', ..., { ... });   // 这样会报错！
+  ```
+
+</变量更新规则>

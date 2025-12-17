@@ -1,0 +1,455 @@
+{
+  "$meta": {
+    "extensible": true,
+    "version": "2.0",
+    "description": "MClite 示例变量 - 第七处员工守则世界观"
+  },
+  "MC": {
+    "$meta": { "extensible": true },
+    "系统": {
+      "$meta": { "extensible": true },
+      "当前地点": "第七处·综合管理科办公室",
+      "当前时间": {
+        "日期": "2024年3月15日",
+        "时段": "上午"
+      }
+    },
+    "花名册": {
+      "$meta": {
+        "extensible": true,
+        "version": "2.0",
+        "description": "第七处全体在编女性人员档案"
+      },
+      "$schema": {
+        "$meta": { "extensible": true },
+        "primaryKey": "id",
+        "displayField": "name",
+        "groupByField": "department",
+        "fields": {
+          "$meta": {
+            "extensible": true,
+            "template": {
+              "label": "",
+              "type": "string",
+              "description": "",
+              "showInList": false,
+              "showInSummary": false,
+              "order": 0,
+              "options": [],
+              "default": null
+            }
+          },
+          "id": {
+            "label": "员工编号",
+            "type": "string",
+            "description": "唯一标识符，格式为No.XXX",
+            "showInList": true,
+            "order": 0
+          },
+          "name": {
+            "label": "姓名",
+            "type": "string",
+            "description": "员工姓名",
+            "showInList": true,
+            "showInSummary": true,
+            "order": 1
+          },
+          "gender": {
+            "label": "性别",
+            "type": "enum",
+            "options": ["女", "男"],
+            "default": "女",
+            "order": 2
+          },
+          "age": {
+            "label": "年龄",
+            "type": "number",
+            "description": "员工年龄（18-28周岁）",
+            "showInList": true,
+            "order": 3
+          },
+          "department": {
+            "label": "所属部门",
+            "type": "string",
+            "description": "所属科室",
+            "showInList": true,
+            "order": 4
+          },
+          "position": {
+            "label": "职务",
+            "type": "string",
+            "description": "职务名称",
+            "showInList": true,
+            "order": 5
+          },
+          "rank": {
+            "label": "职级",
+            "type": "enum",
+            "options": ["管理层", "主任科员", "科员", "实习生"],
+            "showInList": true,
+            "showInSummary": true,
+            "order": 6
+          },
+          "yearsOfService": {
+            "label": "入职年限",
+            "type": "number",
+            "order": 7
+          },
+          "appearance": {
+            "label": "外貌描述",
+            "type": "text",
+            "description": "详细的外貌特征描述，包括发型、眼睛、面部特征、肤质、气质等",
+            "order": 10
+          },
+          "figure": {
+            "label": "身材描述",
+            "type": "text",
+            "description": "身材特征描述",
+            "order": 11
+          },
+          "attire": {
+            "label": "标准着装",
+            "type": "text",
+            "description": "日常穿着描述",
+            "order": 12
+          },
+          "personality": {
+            "label": "性格特征",
+            "type": "tags",
+            "description": "性格标签",
+            "default": [],
+            "showInSummary": true,
+            "order": 20
+          },
+          "rating": {
+            "label": "综合评级",
+            "type": "enum",
+            "options": ["S级", "A级", "B级", "C级"],
+            "description": "七标体系综合体态评级",
+            "showInList": true,
+            "showInSummary": true,
+            "order": 21
+          },
+          "notes": {
+            "label": "备注",
+            "type": "text",
+            "description": "额外备注信息",
+            "order": 99
+          }
+        },
+        "groups": {
+          "$meta": {
+            "extensible": true,
+            "template": {
+              "label": "",
+              "order": 0,
+              "collapsed": false,
+              "fields": []
+            }
+          },
+          "basic": {
+            "label": "基本信息",
+            "order": 1,
+            "collapsed": false,
+            "fields": ["id", "name", "gender", "age", "department", "position", "rank", "yearsOfService"]
+          },
+          "appearance": {
+            "label": "外貌与着装",
+            "order": 2,
+            "collapsed": true,
+            "fields": ["appearance", "figure", "attire"]
+          },
+          "evaluation": {
+            "label": "评估信息",
+            "order": 3,
+            "collapsed": true,
+            "fields": ["personality", "rating"]
+          },
+          "other": {
+            "label": "其他",
+            "order": 99,
+            "collapsed": true,
+            "fields": ["notes"]
+          }
+        }
+      },
+      "entries": {
+        "$meta": { "extensible": true },
+        "No.001": {
+          "id": "No.001",
+          "name": "沈凌汐",
+          "gender": "女",
+          "age": 27,
+          "department": "行动一科",
+          "position": "科长",
+          "rank": "管理层",
+          "yearsOfService": 5,
+          "appearance": "黑色长直发及腰，工作时束高马尾。丹凤眼，眼神锐利冷淡，瞳色深褐近黑。轮廓分明，颧骨线条利落，薄唇常紧抿，下颌尖削。瓷白细腻的肌肤，几乎无瑕。整体气质冷艳凌厉，不怒自威。",
+          "figure": "身高172cm，体重58kg，三围98-60-96cm。身材比例极佳，曲线玲珑。",
+          "attire": "黑色修身西装外套，内搭白色衬衫。黑色包臀裙，黑色吊带丝袜，12cm黑色漆皮细高跟鞋。",
+          "personality": ["严厉", "一丝不苟", "程序至上", "冷面热心"],
+          "rating": "S级",
+          "notes": "行动一科负责人，业务能力出众，管理风格严格。"
+        },
+        "No.002": {
+          "id": "No.002",
+          "name": "苏淼雨",
+          "gender": "女",
+          "age": 23,
+          "department": "综合管理科",
+          "position": "文员",
+          "rank": "科员",
+          "yearsOfService": 2,
+          "appearance": "栗色波浪卷发及肩，刘海遮住额头一部分。圆润的杏眼，眼神温柔带着一丝怯意，瞳色浅棕。脸型圆润，带有几分婴儿肥，唇色粉嫩，常带腼腆微笑。肤色白皙，颊边常泛红晕。整体气质温婉可人，乖巧柔顺。",
+          "figure": "身高162cm，体重52kg，三围92-58-90cm。身材娇小玲珑，曲线柔和。",
+          "attire": "粉色针织开衫，内搭蕾丝边抹胸。粉色百褶裙，白色蕾丝边吊带袜，8cm细高跟鞋。",
+          "personality": ["温柔", "内向", "细心", "容易害羞"],
+          "rating": "A级",
+          "notes": "综合管理科文员，负责文件整理和来访接待。性格温顺，工作认真。"
+        },
+        "No.003": {
+          "id": "No.003",
+          "name": "白清妍",
+          "gender": "女",
+          "age": 25,
+          "department": "情报分析科",
+          "position": "分析员",
+          "rank": "主任科员",
+          "yearsOfService": 3,
+          "appearance": "银白色长发，常挽成优雅的发髻。狭长的凤眼，眼神冷静深邃，瞳色灰蓝。面部线条柔和却不失英气，薄唇常抿成一线。肤质如玉，透着淡淡的冷意。整体气质清冷高雅，仙气飘飘。",
+          "figure": "身高168cm，体重55kg，三围94-59-92cm。身材修长匀称，气质出尘。",
+          "attire": "白色短款西装外套，内搭白色抹胸。白色百褶裙，白色过膝袜，10cm细高跟鞋。",
+          "personality": ["冷静", "理性", "寡言", "观察力敏锐"],
+          "rating": "A级",
+          "notes": "情报分析科骨干，擅长数据分析和情报研判。表面冷淡但内心善良。"
+        }
+      }
+    },
+    "文档": {
+      "$meta": {
+        "extensible": true,
+        "version": "2.0",
+        "description": "多文档管理容器 - 支持多份文档并行存在",
+        "template": {
+          "title": "",
+          "description": "",
+          "order": 0,
+          "sections": {
+            "$meta": {
+              "extensible": true,
+              "template": {
+                "title": "",
+                "content": "",
+                "order": 0,
+                "children": {
+                  "$meta": { "extensible": true }
+                }
+              }
+            }
+          }
+        }
+      },
+      "员工守则": {
+        "title": "员工守则",
+        "description": "国家特别事务管理局第七执行处《员工守则》 ver.7.3.2",
+        "order": 1,
+        "sections": {
+          "$meta": {
+            "extensible": true,
+            "template": {
+              "title": "",
+              "content": "",
+              "order": 0,
+              "children": {
+                "$meta": { "extensible": true }
+              }
+            }
+          },
+          "前言": {
+            "title": "前言",
+            "content": "欢迎加入国家特别事务管理局第七执行处。本守则旨在帮助您快速了解本处的组织架构、工作规范及各类事务办理流程。请您务必仔细阅读并严格遵守。如有疑问，可向综合管理科咨询。祝工作顺利。\n\n——综合管理科 敬上",
+            "order": 0,
+            "children": {}
+          },
+          "第一章": {
+            "title": "第一章 总则",
+            "content": "",
+            "order": 1,
+            "children": {
+              "$meta": { "extensible": true },
+              "第一条": {
+                "title": "第一条",
+                "content": "本处全称为「国家特别事务管理局第七执行处」（以下简称「第七处」或「本处」），隶属于国家安全系统，负责各类非常规事务的调查与处置。",
+                "order": 1
+              },
+              "第二条": {
+                "title": "第二条",
+                "content": "本处工作地点位于市中心行政大厦12至15层。未经许可，严禁向外界透露本处具体位置及工作内容。",
+                "order": 2
+              },
+              "第三条": {
+                "title": "第三条",
+                "content": "本处全体在编人员均须遵守本守则之规定。",
+                "order": 3
+              }
+            }
+          },
+          "第二章": {
+            "title": "第二章 组织架构",
+            "content": "",
+            "order": 2,
+            "children": {
+              "$meta": { "extensible": true },
+              "第四条": {
+                "title": "第四条",
+                "content": "本处设以下职级层次：",
+                "order": 1,
+                "children": {
+                  "$meta": { "extensible": true },
+                  "一": { "title": "一", "content": "处长：本处最高负责人", "order": 1 },
+                  "二": { "title": "二", "content": "科长/主管：各科室负责人", "order": 2 },
+                  "三": { "title": "三", "content": "主任科员/专员：核心业务骨干", "order": 3 },
+                  "四": { "title": "四", "content": "科员/文员：一般办事人员", "order": 4 },
+                  "五": { "title": "五", "content": "实习生/借调人员：临时性人员", "order": 5 }
+                }
+              },
+              "第五条": {
+                "title": "第五条",
+                "content": "本处设以下业务科室：",
+                "order": 2,
+                "children": {
+                  "$meta": { "extensible": true },
+                  "一": { "title": "一", "content": "行动一科：外勤执行，负责实地调查与处置", "order": 1 },
+                  "二": { "title": "二", "content": "行动二科：外勤执行，与一科职能互补", "order": 2 },
+                  "三": { "title": "三", "content": "情报分析科：信息收集、整理与研判", "order": 3 },
+                  "四": { "title": "四", "content": "综合管理科：人事、财务、后勤、档案等内务管理", "order": 4 },
+                  "五": { "title": "五", "content": "技术支援科：装备研发与技术保障", "order": 5 }
+                }
+              }
+            }
+          },
+          "第三章": {
+            "title": "第三章 人事管理规定",
+            "content": "",
+            "order": 3,
+            "children": {
+              "$meta": { "extensible": true },
+              "第一节": {
+                "title": "第一节 人员录用标准",
+                "content": "",
+                "order": 1,
+                "children": {
+                  "$meta": { "extensible": true },
+                  "第七条": {
+                    "title": "第七条",
+                    "content": "本处女性人员录用须符合以下基本条件：",
+                    "order": 1,
+                    "children": {
+                      "$meta": { "extensible": true },
+                      "一": {
+                        "title": "一、年龄要求",
+                        "content": "录用年龄范围：18周岁（含）至28周岁（含）。年满28周岁的在职人员，将于当年度自动调离本处。",
+                        "order": 1
+                      },
+                      "二": {
+                        "title": "二、学历及能力要求",
+                        "content": "具备相应岗位所需的专业知识与业务能力，通过本处组织的专项考核。",
+                        "order": 2
+                      }
+                    }
+                  }
+                }
+              },
+              "第二节": {
+                "title": "第二节 在职人员管理",
+                "content": "",
+                "order": 2,
+                "children": {
+                  "$meta": { "extensible": true },
+                  "第九条": {
+                    "title": "第九条",
+                    "content": "本处女性人员须每季度进行一次体态复检，确保持续符合录用标准。",
+                    "order": 1
+                  },
+                  "第十条": {
+                    "title": "第十条",
+                    "content": "复检不合格者，给予三个月整改期。整改期满仍不合格者，予以调离或辞退处理。",
+                    "order": 2
+                  }
+                }
+              }
+            }
+          },
+          "附录": {
+            "title": "附录",
+            "content": "",
+            "order": 99,
+            "children": {
+              "$meta": { "extensible": true },
+              "FAQ": {
+                "title": "常见问题解答（FAQ）",
+                "content": "",
+                "order": 1,
+                "children": {
+                  "$meta": { "extensible": true },
+                  "Q1": {
+                    "title": "Q1: 申请会被拒绝吗？",
+                    "content": "只要申请书格式规范、表述清晰，原则上均予以批准。审批过程关注的是「程序是否合规」，而非「申请内容是否合理」。",
+                    "order": 1
+                  },
+                  "Q2": {
+                    "title": "Q2: 被申请人可以拒绝吗？",
+                    "content": "对于已通过正式审批的申请，被申请人负有配合义务，原则上不得拒绝。但被申请人有权就具体执行方式提出合理化建议。",
+                    "order": 2
+                  }
+                }
+              }
+            }
+          },
+          "结尾": {
+            "title": "结尾说明",
+            "content": "本守则至此结束，请妥善保管。如有遗失，请向综合管理科补领。",
+            "order": 100,
+            "children": {}
+          }
+        }
+      },
+      "内部事务申请指南": {
+        "title": "内部事务申请指南",
+        "description": "第七处内部事务申请流程说明",
+        "order": 2,
+        "sections": {
+          "$meta": { "extensible": true },
+          "概述": {
+            "title": "概述",
+            "content": "本指南旨在帮助员工了解各类内部事务的申请流程和注意事项。",
+            "order": 1
+          },
+          "申请流程": {
+            "title": "申请流程",
+            "content": "",
+            "order": 2,
+            "children": {
+              "$meta": { "extensible": true },
+              "步骤一": {
+                "title": "步骤一：填写申请表",
+                "content": "从综合管理科领取或内网下载《内部事务申请表》，按要求填写完整。",
+                "order": 1
+              },
+              "步骤二": {
+                "title": "步骤二：直属上级初审",
+                "content": "将申请表提交至直属上级进行初步审核。",
+                "order": 2
+              },
+              "步骤三": {
+                "title": "步骤三：综合管理科备案",
+                "content": "经上级签署意见后，提交综合管理科存档备案。",
+                "order": 3
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

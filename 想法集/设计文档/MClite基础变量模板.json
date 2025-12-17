@@ -1,0 +1,85 @@
+{
+  "$meta": {
+    "extensible": true,
+    "version": "2.0",
+    "description": "MClite 基础变量模板 - 可扩展架构"
+  },
+  "MC": {
+    "$meta": { "extensible": true },
+    "系统": {
+      "$meta": { "extensible": true },
+      "当前地点": "",
+      "当前时间": {
+        "日期": "",
+        "时段": ""
+      }
+    },
+    "花名册": {
+      "$meta": {
+        "extensible": true,
+        "version": "2.0",
+        "description": "Schema-Driven 可扩展花名册"
+      },
+      "$schema": {
+        "$meta": { "extensible": true },
+        "primaryKey": "",
+        "displayField": "",
+        "groupByField": "",
+        "fields": {
+          "$meta": {
+            "extensible": true,
+            "template": {
+              "label": "",
+              "type": "string",
+              "description": "",
+              "showInList": false,
+              "showInSummary": false,
+              "order": 0,
+              "options": [],
+              "default": null
+            }
+          }
+        },
+        "groups": {
+          "$meta": {
+            "extensible": true,
+            "template": {
+              "label": "",
+              "order": 0,
+              "collapsed": false,
+              "fields": []
+            }
+          }
+        }
+      },
+      "entries": {
+        "$meta": { "extensible": true }
+      }
+    },
+    "文档": {
+      "$meta": {
+        "extensible": true,
+        "version": "2.0",
+        "description": "多文档管理容器 - 支持多份文档并行存在",
+        "template": {
+          "title": "",
+          "description": "",
+          "order": 0,
+          "sections": {
+            "$meta": {
+              "extensible": true,
+              "template": {
+                "title": "",
+                "content": "",
+                "order": 0,
+                "children": {
+                  "$meta": { "extensible": true }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

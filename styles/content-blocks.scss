@@ -1,0 +1,454 @@
+/**
+ * MClite - 内容块差异化显示样式
+ * 
+ * 格式强调规则：
+ * - 「」 角色语言/对话 - 深蓝色，引用样式
+ * - *...* 角色心理描写 - 紫色，斜体
+ * - 【】 景物描写 - 绿色，虚线边框
+ * - 【【...】】 系统提示 - 红色，强调边框
+ */
+
+// ============ 内容块CSS变量 ============
+:root {
+  // === 对话样式（「」）===
+  --cb-dialogue-color: #1a5fb4;
+  --cb-dialogue-bg: rgba(26, 95, 180, 0.05);
+  --cb-dialogue-border: rgba(26, 95, 180, 0.2);
+  --cb-dialogue-icon: '💬';
+
+  // === 心理描写样式（*...*）===
+  --cb-thought-color: #8b5cf6;
+  --cb-thought-bg: rgba(139, 92, 246, 0.05);
+  --cb-thought-border: rgba(139, 92, 246, 0.15);
+  --cb-thought-icon: '💭';
+
+  // === 景物描写样式（【】）===
+  --cb-scenery-color: #059669;
+  --cb-scenery-bg: rgba(5, 150, 105, 0.05);
+  --cb-scenery-border: rgba(5, 150, 105, 0.15);
+  --cb-scenery-icon: '🏞️';
+
+  // === 系统提示样式（【【】】）===
+  --cb-system-color: #dc2626;
+  --cb-system-bg: rgba(220, 38, 38, 0.08);
+  --cb-system-border: #dc2626;
+  --cb-system-icon: '⚠️';
+
+  // === 通用样式 ===
+  --cb-text-color: var(--text-color, #2e3436);
+  --cb-transition: 0.15s ease;
+  --cb-radius-sm: 4px;
+  --cb-radius-md: 6px;
+  --cb-radius-lg: 8px;
+}
+
+// ============ 深色主题变量 ============
+:root.dark-theme,
+.dark-theme {
+  // === 对话样式（深色）===
+  --cb-dialogue-color: #60a5fa;
+  --cb-dialogue-bg: rgba(96, 165, 250, 0.1);
+  --cb-dialogue-border: rgba(96, 165, 250, 0.3);
+
+  // === 心理描写样式（深色）===
+  --cb-thought-color: #a78bfa;
+  --cb-thought-bg: rgba(167, 139, 250, 0.1);
+  --cb-thought-border: rgba(167, 139, 250, 0.2);
+
+  // === 景物描写样式（深色）===
+  --cb-scenery-color: #34d399;
+  --cb-scenery-bg: rgba(52, 211, 153, 0.1);
+  --cb-scenery-border: rgba(52, 211, 153, 0.2);
+
+  // === 系统提示样式（深色）===
+  --cb-system-color: #f87171;
+  --cb-system-bg: rgba(248, 113, 113, 0.15);
+  --cb-system-border: #f87171;
+
+  --cb-text-color: var(--text-color, #f5f5f5);
+}
+
+// ============ 内容块渲染器容器 ============
+.content-block-renderer {
+  font-size: var(--font-md, 15px);
+  line-height: 1.8;
+  color: var(--cb-text-color);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+// ============ 内容块基础样式 ============
+.content-block {
+  display: inline;
+  transition: all var(--cb-transition);
+
+  &__icon {
+    margin-right: 4px;
+    font-size: 0.9em;
+    vertical-align: middle;
+    opacity: 0.8;
+  }
+
+  &__content {
+    vertical-align: baseline;
+  }
+}
+
+// ============ 普通文本 ============
+.content-block--text {
+  color: var(--cb-text-color);
+  // 无特殊样式
+}
+
+// ============ 对话样式 - 「」 ============
+.content-block--dialogue {
+  display: inline-block;
+  position: relative;
+  color: var(--cb-dialogue-color);
+  background: var(--cb-dialogue-bg);
+  border-left: 3px solid var(--cb-dialogue-border);
+  border-radius: 0 var(--cb-radius-sm) var(--cb-radius-sm) 0;
+  padding: 6px 12px;
+  margin: 4px 2px;
+
+  // 对话引号效果
+  &::before {
+    content: '「';
+    position: absolute;
+    left: -2px;
+    top: -4px;
+    font-size: 1.5em;
+    color: var(--cb-dialogue-border);
+    opacity: 0.4;
+    font-weight: bold;
+  }
+
+  // 悬停效果
+  &:hover {
+    background: var(--cb-dialogue-bg);
+    border-left-color: var(--cb-dialogue-color);
+    transform: translateX(2px);
+    box-shadow: -2px 2px 8px rgba(26, 95, 180, 0.15);
+  }
+}
+
+// ============ 心理描写样式 - *...* ============
+.content-block--thought {
+  display: inline-block;
+  color: var(--cb-thought-color);
+  background: var(--cb-thought-bg);
+  font-style: italic;
+  padding: 4px 10px;
+  margin: 2px;
+  border-radius: var(--cb-radius-sm);
+  position: relative;
+
+  // 装饰性效果 - 波浪底线
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--cb-thought-border) 20%,
+      var(--cb-thought-color) 50%,
+      var(--cb-thought-border) 80%,
+      transparent 100%
+    );
+    opacity: 0.3;
+    border-radius: 1px;
+  }
+
+  // 思考泡泡图标效果
+  .content-block__icon {
+    animation: thoughtBubble 2s ease-in-out infinite;
+  }
+
+  // 悬停效果
+  &:hover {
+    background: rgba(139, 92, 246, 0.1);
+
+    &::after {
+      opacity: 0.5;
+    }
+  }
+}
+
+@keyframes thoughtBubble {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translateY(-2px);
+    opacity: 1;
+  }
+}
+
+// ============ 景物描写样式 - 【】 ============
+.content-block--scenery {
+  display: block;
+  color: var(--cb-scenery-color);
+  background: var(--cb-scenery-bg);
+  border: 1px dashed var(--cb-scenery-border);
+  border-radius: var(--cb-radius-md);
+  padding: 12px 16px;
+  margin: 10px 0;
+  line-height: 1.9;
+  position: relative;
+
+  // 装饰性角落
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--cb-scenery-border);
+    opacity: 0.4;
+  }
+
+  &::before {
+    top: -1px;
+    left: -1px;
+    border-right: none;
+    border-bottom: none;
+    border-radius: var(--cb-radius-sm) 0 0 0;
+  }
+
+  &::after {
+    bottom: -1px;
+    right: -1px;
+    border-left: none;
+    border-top: none;
+    border-radius: 0 0 var(--cb-radius-sm) 0;
+  }
+
+  // 悬停效果
+  &:hover {
+    border-style: solid;
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.1);
+
+    &::before,
+    &::after {
+      opacity: 0.7;
+    }
+  }
+
+  // 景物描写内的文字稍微缩进
+  .content-block__content {
+    display: block;
+    text-indent: 2em;
+  }
+}
+
+// ============ 系统提示样式 - 【【】】 ============
+.content-block--system {
+  display: block;
+  color: var(--cb-system-color);
+  background: var(--cb-system-bg);
+  border: 2px solid var(--cb-system-border);
+  border-radius: var(--cb-radius-lg);
+  padding: 14px 20px;
+  margin: 12px 0;
+  text-align: center;
+  font-weight: 600;
+  position: relative;
+  overflow: hidden;
+
+  // 警示条纹背景
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: repeating-linear-gradient(
+      90deg,
+      var(--cb-system-color),
+      var(--cb-system-color) 10px,
+      transparent 10px,
+      transparent 20px
+    );
+    opacity: 0.3;
+  }
+
+  // 图标放大并添加动画
+  .content-block__icon {
+    font-size: 1.2em;
+    margin-right: 8px;
+    animation: systemPulse 1.5s ease-in-out infinite;
+  }
+
+  // 悬停效果
+  &:hover {
+    transform: scale(1.01);
+    box-shadow: 0 4px 16px rgba(220, 38, 38, 0.2);
+
+    &::before {
+      opacity: 0.5;
+    }
+  }
+}
+
+@keyframes systemPulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+// ============ 流式传输光标 ============
+.streaming-cursor {
+  display: inline-block;
+  color: var(--primary-color, #1a5fb4);
+  font-weight: bold;
+  animation: cursorBlink 1s step-end infinite;
+  margin-left: 2px;
+}
+
+@keyframes cursorBlink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+// ============ 动画效果 ============
+.content-block--animated {
+  animation: blockFadeIn 0.3s ease-out;
+}
+
+@keyframes blockFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ============ 打印样式 ============
+@media print {
+  .content-block {
+    // 打印时简化样式
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+
+    &::before,
+    &::after {
+      display: none !important;
+    }
+  }
+
+  .content-block--dialogue {
+    &::before {
+      display: inline !important;
+      content: '「' !important;
+      position: static !important;
+    }
+    &::after {
+      content: '」' !important;
+    }
+  }
+
+  .content-block--scenery {
+    &::before {
+      content: '【' !important;
+    }
+    &::after {
+      content: '】' !important;
+    }
+  }
+
+  .content-block--system {
+    border: 1px solid #000 !important;
+    text-align: center;
+  }
+
+  .streaming-cursor {
+    display: none !important;
+  }
+}
+
+// ============ 响应式调整 ============
+@media (max-width: 768px) {
+  .content-block--dialogue {
+    padding: 4px 8px;
+    margin: 2px 1px;
+
+    &::before {
+      font-size: 1.2em;
+    }
+  }
+
+  .content-block--thought {
+    padding: 3px 8px;
+  }
+
+  .content-block--scenery {
+    padding: 8px 12px;
+    margin: 8px 0;
+
+    .content-block__content {
+      text-indent: 1em;
+    }
+  }
+
+  .content-block--system {
+    padding: 10px 14px;
+    margin: 8px 0;
+  }
+}
+
+// ============ 无障碍：减少动画 ============
+@media (prefers-reduced-motion: reduce) {
+  .content-block,
+  .content-block--animated,
+  .streaming-cursor,
+  .content-block__icon {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+// ============ 高对比度模式 ============
+@media (prefers-contrast: high) {
+  :root {
+    --cb-dialogue-color: #0055cc;
+    --cb-dialogue-bg: rgba(0, 85, 204, 0.15);
+    --cb-dialogue-border: #0055cc;
+
+    --cb-thought-color: #6b21a8;
+    --cb-thought-bg: rgba(107, 33, 168, 0.15);
+
+    --cb-scenery-color: #047857;
+    --cb-scenery-bg: rgba(4, 120, 87, 0.15);
+    --cb-scenery-border: #047857;
+
+    --cb-system-color: #b91c1c;
+    --cb-system-bg: rgba(185, 28, 28, 0.15);
+    --cb-system-border: #b91c1c;
+  }
+
+  .content-block {
+    border-width: 2px !important;
+  }
+}

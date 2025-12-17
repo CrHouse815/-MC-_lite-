@@ -1,0 +1,153 @@
+/**
+ * MC房子 - SCSS变量定义
+ * 职场模拟游戏 - 政府办公风格
+ */
+
+:root {
+  // === 主色调（政府/办公风格）===
+  --primary-color: #1a5fb4; // 深蓝色 - 专业、严肃
+  --primary-hover: #3584e4;
+  --primary-active: #154d93;
+  --primary-light: rgba(26, 95, 180, 0.1);
+
+  // === 背景色（浅色办公风格）===
+  --bg-color: #f6f5f4; // 浅灰白色背景
+  --bg-secondary: #ffffff; // 白色面板
+  --bg-tertiary: #deddda; // 分隔区域
+  --bg-panel: #ffffff;
+  --bg-hover: #f0f0f0;
+
+  // === 文字颜色 ===
+  --text-color: #2e3436; // 深灰色文字
+  --text-secondary: #5e5c64;
+  --text-disabled: #9a9996;
+  --text-highlight: #000000;
+
+  // === 边框颜色 ===
+  --border-color: #c0bfbc;
+  --border-hover: #9a9996;
+  --border-active: #77767b;
+  --border-light: #e5e5e5;
+
+  // === 状态颜色 ===
+  --success-color: #26a269; // 绿色 - 审批通过
+  --success-hover: #2ec27e;
+  --success-light: rgba(38, 162, 105, 0.1);
+  --warning-color: #e5a50a; // 橙黄色 - 待处理
+  --warning-hover: #f5c211;
+  --warning-light: rgba(229, 165, 10, 0.1);
+  --error-color: #c01c28; // 红色 - 驳回/错误
+  --error-hover: #e01b24;
+  --error-light: rgba(192, 28, 40, 0.1);
+  --danger-color: #c01c28;
+  --danger-hover: #e01b24;
+  --info-color: #1c71d8; // 蓝色 - 信息
+  --info-hover: #3584e4;
+  --info-light: rgba(28, 113, 216, 0.1);
+
+  // === 职场专用颜色 ===
+  --office-header: #2c3e50; // 顶部栏深色
+  --office-sidebar: #34495e; // 侧边栏
+  --office-accent: #e74c3c; // 强调色（通知等）
+  --office-gold: #d4af37; // 金色（重要标记）
+  --office-stamp: #c0392b; // 印章红
+  --office-paper: #fffef5; // 纸张色
+  --office-ink: #1a1a2e; // 墨水色
+
+  // === 阴影 ===
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.12);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+  // === 圆角 ===
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  // === 间距 ===
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+
+  // === 字体大小 ===
+  --font-xs: 11px;
+  --font-sm: 13px;
+  --font-md: 15px;
+  --font-lg: 17px;
+  --font-xl: 20px;
+  --font-2xl: 24px;
+
+  // === 员工守则专用样式变量 ===
+  --handbook-bg: #fdfcf8; // 温暖的米白色纸张背景
+  --handbook-text: #2c2c2c; // 深灰色文字
+  --handbook-text-secondary: #5a5a5a; // 次要文字
+  --handbook-text-muted: #8a8a8a; // 弱化文字
+  --handbook-accent: #1a4a7a; // 深蓝色强调
+  --handbook-divider: #b8b8b8; // 分隔线
+  --handbook-border: #d4d0c8; // 边框
+  --handbook-title-xl: 22px; // 文档大标题
+  --handbook-title-lg: 18px; // 章标题
+  --handbook-title-md: 16px; // 节标题
+  --handbook-body: 15px; // 正文
+  --handbook-detail: 14px; // 细则
+  --handbook-sub-detail: 13px; // 子细则
+  --handbook-line-height: 2; // 正文行高
+
+  // === 过渡动画 ===
+  --transition-fast: 0.1s ease;
+  --transition-normal: 0.2s ease;
+  --transition-slow: 0.3s ease;
+
+  // === 层级 ===
+  --z-dropdown: 100;
+  --z-modal: 200;
+  --z-tooltip: 300;
+  --z-notification: 400;
+}
+
+// === 深色主题（可选）===
+:root.dark-theme {
+  --primary-color: #3584e4;
+  --primary-hover: #62a0ea;
+  --primary-active: #1c71d8;
+  --primary-light: rgba(53, 132, 228, 0.15);
+
+  --bg-color: #1e1e1e;
+  --bg-secondary: #2d2d2d;
+  --bg-tertiary: #3d3d3d;
+  --bg-panel: #2d2d2d;
+  --bg-hover: #3d3d3d;
+
+  --text-color: #f5f5f5;
+  --text-secondary: #b0b0b0;
+  --text-disabled: #707070;
+  --text-highlight: #ffffff;
+
+  --border-color: #4d4d4d;
+  --border-hover: #5d5d5d;
+  --border-active: #6d6d6d;
+  --border-light: #3d3d3d;
+
+  --office-header: #1a1a2e;
+  --office-sidebar: #252540;
+  --office-paper: #2d2d3d;
+
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.3);
+
+  // === 员工守则深色主题变量 ===
+  --handbook-bg: #1e1e24; // 深色纸张背景
+  --handbook-text: #e8e8e8; // 浅色主文字
+  --handbook-text-secondary: #b0b0b0; // 次要文字
+  --handbook-text-muted: #808080; // 弱化文字
+  --handbook-accent: #6ba3d6; // 亮蓝色强调
+  --handbook-divider: #4a4a50; // 分隔线
+  --handbook-border: #3a3a42; // 边框
+}
