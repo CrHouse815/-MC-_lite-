@@ -100,6 +100,10 @@
         <span v-if="!isCollapsed" class="nav-label">历史正文</span>
       </div>
       <div class="divider"></div>
+      <div class="nav-item footer-item" @click="$emit('open-changelog')">
+        <span class="nav-icon">📋</span>
+        <span v-if="!isCollapsed" class="nav-label">更新日志</span>
+      </div>
       <div class="nav-item footer-item" @click="$emit('open-help')">
         <span class="nav-icon">❓</span>
         <span v-if="!isCollapsed" class="nav-label">帮助说明</span>
@@ -154,6 +158,7 @@ const emit = defineEmits<{
   (e: 'open-save-manager'): void;
   (e: 'open-context-manager'): void;
   (e: 'open-history-text'): void;
+  (e: 'open-changelog'): void;
   (e: 'view-notice', id: string): void;
   (e: 'close-mobile'): void;
 }>();

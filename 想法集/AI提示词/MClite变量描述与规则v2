@@ -63,6 +63,10 @@
 
 说明: 存放实际的数据条目。以条目ID为键，值为包含所有字段数据的对象。条目的字段应与 $schema.fields 中定义的字段对应。
 
+⚠️ **重要：键名不能包含点号（.）！** 因为点号是路径分隔符。
+- ❌ 错误：`"No.001"` - 会被解析为 `No` -> `001` 两级路径
+- ✅ 正确：`"No001"` 或 `"No_001"` 或 `"员工001"`
+
 ---
 
 # 文档（多文档并行 + 递归树形结构）
@@ -150,6 +154,26 @@ rule:
   
   ## ⚠️⚠️⚠️ 关键约束（必须严格遵守，违反将导致错误）⚠️⚠️⚠️
   
+  ### 🚨🚨🚨 最重要的约束：键名不能包含点号！🚨🚨🚨
+  
+  **点号（.）是路径分隔符**，如果键名中包含点号，会导致路径解析错误！
+  
+  | 写法 | 结果 | 说明 |
+  |------|------|------|
+  | `_.assign('MC.花名册.entries', 'No.001', {...})` | ❌ 错误 | `No.001` 会被解析为两级路径 |
+  | `_.assign('MC.花名册.entries', 'No001', {...})` | ✅ 正确 | 使用无点号的键名 |
+  | `_.set('MC.花名册.entries.No.001.name', ...)` | ❌ 错误 | 路径会被错误解析 |
+  | `_.set('MC.花名册.entries.No001.name', ...)` | ✅ 正确 | 使用无点号的键名 |
+  
+  **正确的键名格式**：
+  - `No001`、`No002`、`No003` ✅
+  - `员工001`、`角色A` ✅
+  - `No_001`、`entry-001` ✅
+  
+  **错误的键名格式**：
+  - `No.001` ❌（点号会被解析为路径分隔符）
+  - `1.2.3` ❌（多个点号更危险）
+  
   ### 核心原则：_.set 和 _.assign 的本质区别
   
   | 指令 | 用途 | 路径要求 |
@@ -161,37 +185,82 @@ rule:
   
   **创建/覆盖整个条目** → 使用 `_.assign`，路径到 `entries`：
   ```javascript
-  // ✅ 正确：在 entries 下创建条目 No.001
-  _.assign('MC.花名册.entries', 'No.001', { "id": "No.001", "name": "xxx", ... });
+  // ✅ 正确：在 entries 下创建条目 No001（注意键名不含点号）
+  _.assign('MC.花名册.entries', 'No001', { "id": "No001", "name": "xxx", ... });
   ```
   
   **修改条目内的单个字段** → 使用 `_.set`，路径到具体字段：
   ```javascript
-  // ✅ 正确：修改已存在条目的某个字段（前提是 No.001 已存在）
-  _.set('MC.花名册.entries.No.001.name', '旧名字', '新名字');
+  // ✅ 正确：修改已存在条目的某个字段（前提是 No001 已存在）
+  _.set('MC.花名册.entries.No001.name', '旧名字', '新名字');
   ```
   
   ### ❌ 常见错误（会导致 "path does not exist" 错误）
   
   ```javascript
   // ❌ 错误：用 _.set 去"更新"一个不存在的条目
-  _.set('MC.花名册.entries.No.001', {...}, {...});  // 如果 No.001 不存在，会失败！
+  _.set('MC.花名册.entries.No001', {...}, {...});  // 如果 No001 不存在，会失败！
   
   // ❌ 错误：用 _.set 去修改不存在条目的字段
-  _.set('MC.花名册.entries.No.001.name', null, '张三');  // 如果 No.001 不存在，会失败！
+  _.set('MC.花名册.entries.No001.name', null, '张三');  // 如果 No001 不存在，会失败！
   
   // ❌ 错误：用 _.assign 在不存在的条目上添加字段
-  _.assign('MC.花名册.entries.No.001', 'name', '张三');  // 如果 No.001 不存在，会失败！
+  _.assign('MC.花名册.entries.No001', 'name', '张三');  // 如果 No001 不存在，会失败！
+  
+  // ❌ 错误：键名包含点号（会导致路径解析错误）
+  _.assign('MC.花名册.entries', 'No.001', {...});  // 点号会被解析为路径分隔符！
   ```
   
   ### ✅ 正确做法总结
   
   | 场景 | 正确写法 |
   |------|----------|
-  | 创建新条目 | `_.assign('MC.花名册.entries', 'No.004', { 完整对象 });` |
-  | 覆盖已有条目（改很多字段） | `_.assign('MC.花名册.entries', 'No.001', { 新的完整对象 });` |
-  | 修改条目的单个字段 | `_.set('MC.花名册.entries.No.001.字段名', 旧值, 新值);` |
-  | 为条目添加新字段 | `_.assign('MC.花名册.entries.No.001', '新字段名', 新字段值);` |
+  | 创建新条目 | `_.assign('MC.花名册.entries', 'No004', { 完整对象 });` |
+  | 覆盖已有条目（改很多字段） | `_.assign('MC.花名册.entries', 'No001', { 新的完整对象 });` |
+  | 修改条目的单个字段 | `_.set('MC.花名册.entries.No001.字段名', 旧值, 新值);` |
+  | 🚨为条目添加新字段🚨 | **必须用 `_.assign` 覆盖整个条目，包含所有旧字段 + 新字段！** |
+  
+  ### 🚨🚨🚨 超级重要：为已存在条目添加新字段的正确方法 🚨🚨🚨
+  
+  **MVU 框架的 schema 验证机制会阻止向已存在的条目对象直接添加新键！**
+  
+  ```javascript
+  // ❌ 错误！会报 "SCHEMA VIOLATION: Cannot assign new key into non-extensible object"
+  _.assign('MC.花名册.entries.No001', 'bust', '新字段值');
+  _.assign('MC.花名册.entries.No001', 'waist', '新字段值');
+  _.assign('MC.花名册.entries.No001', 'hips', '新字段值');
+  
+  // ✅ 正确！必须用 _.assign 覆盖整个条目，包含所有原有字段 + 新字段
+  _.assign('MC.花名册.entries', 'No001', {
+    // 保留所有原有字段
+    "id": "No001",
+    "name": "沈凌汐",
+    "gender": "女",
+    "age": 27,
+    "department": "行动一科",
+    "position": "科长",
+    "rank": "管理层",
+    "yearsOfService": 5,
+    "appearance": "...",
+    "figure": "...",
+    "attire": "...",
+    "personality": ["严厉", "一丝不苟"],
+    "rating": "S级",
+    "notes": "...",
+    // 添加新字段
+    "bust": "新字段值",
+    "waist": "新字段值",
+    "hips": "新字段值"
+  });
+  ```
+  
+  **为什么？** 因为 MVU 框架的 entries 中的每个条目对象默认不可扩展（non-extensible）。
+  只有容器对象（如 `entries` 本身）带有 `$meta: { extensible: true }` 标记，才允许添加新键。
+  
+  **正确流程（为多个条目添加新字段时）：**
+  1. 先更新 $schema.fields 添加新字段定义
+  2. 先更新 $schema.groups 将新字段加入分组
+  3. 然后用 `_.assign('MC.花名册.entries', '条目ID', { 完整对象包含所有旧字段+新字段 })` 覆盖每个条目
   
   analysis:
     - 数据结构与路径规则:
@@ -226,8 +295,9 @@ rule:
           `_.set('MC.花名册.entries.条目ID.字段名', '旧值', '新值');`
         - 数值增减:
           `_.add('MC.花名册.entries.条目ID.数值字段', 增量);`
-        - 为已存在条目添加新字段:
-          `_.assign('MC.花名册.entries.条目ID', '新字段名', '新字段值');`
+        - 🚨为已存在条目添加新字段（重要！）:
+          **不能用** `_.assign('MC.花名册.entries.条目ID', '新字段名', '新字段值');` ← 会报 SCHEMA VIOLATION！
+          **必须用** `_.assign('MC.花名册.entries', '条目ID', { 所有原字段 + 新字段的完整对象 });`
     
     - 文档操作:
         - 添加新文档:
@@ -265,9 +335,9 @@ rule:
         // 地点转移到会议室
         _.set('MC.系统.当前地点', '综合管理科办公室', '大会议室');
         
-        // 添加新出场人物到花名册（正确：一次性创建完整条目）
-        _.assign('MC.花名册.entries', 'No.004', {
-          "id": "No.004",
+        // 添加新出场人物到花名册（正确：一次性创建完整条目，键名不含点号）
+        _.assign('MC.花名册.entries', 'No004', {
+          "id": "No004",
           "name": "李雨薇",
           "gender": "女",
           "age": 22,
@@ -277,14 +347,39 @@ rule:
           "yearsOfService": 1
         });
         
-        // 更新已存在人员的单个字段（正确：No.001 已存在于数据中）
-        _.set('MC.花名册.entries.No.001.notes', '行动一科负责人。', '行动一科负责人，今日主持了部门会议。');
+        // 更新已存在人员的单个字段（正确：No001 已存在于数据中，字段也已存在）
+        _.set('MC.花名册.entries.No001.notes', '行动一科负责人。', '行动一科负责人，今日主持了部门会议。');
         
-        // 为已存在人员添加新字段（正确：No.001 已存在，用 assign 添加新属性）
-        _.assign('MC.花名册.entries.No.001', 'specialSkill', '格斗技巧');
+        // 🚨为已存在人员添加新字段（正确方法：用 assign 覆盖整个条目，包含所有原字段+新字段）
+        _.assign('MC.花名册.entries', 'No001', {
+          "id": "No001",
+          "name": "沈凌汐",
+          "gender": "女",
+          "age": 27,
+          "department": "行动一科",
+          "position": "科长",
+          "rank": "管理层",
+          "yearsOfService": 5,
+          "appearance": "...",
+          "figure": "...",
+          "attire": "...",
+          "personality": ["严厉", "一丝不苟"],
+          "rating": "S级",
+          "notes": "行动一科负责人，今日主持了部门会议。",
+          "specialSkill": "格斗技巧"
+        });
         
-        // 批量更新条目的多个字段（正确：使用 assign 覆盖整个条目）
-        _.assign('MC.花名册.entries', 'No.002', {"id":"No.002","name":"苏淼雨","age":24,"notes":"今日表现优秀"});
+        // 批量更新条目的多个字段（正确：使用 assign 覆盖整个条目，包含所有字段）
+        _.assign('MC.花名册.entries', 'No002', {
+          "id": "No002",
+          "name": "苏淼雨",
+          "gender": "女",
+          "age": 24,
+          "department": "综合管理科",
+          "position": "文员",
+          "rank": "科员",
+          "notes": "今日表现优秀"
+        });
         
         // 为花名册添加新字段定义
         _.assign('MC.花名册.$schema.fields', 'specialSkill', {
@@ -318,30 +413,49 @@ rule:
   
   ```javascript
   // ❌ 错误1：用 _.set 更新整个条目（最常见错误！）
-  _.set('MC.花名册.entries.No.001', {...}, {...});  // 如果 No.001 不存在，会报 "path does not exist"
+  _.set('MC.花名册.entries.No001', {...}, {...});  // 如果 No001 不存在，会报 "path does not exist"
   
   // ✅ 正确：应该用 _.assign，路径到 entries
-  _.assign('MC.花名册.entries', 'No.001', { 完整的条目对象 });
+  _.assign('MC.花名册.entries', 'No001', { 完整的条目对象 });
   
   // ❌ 错误2：对不存在的条目逐个添加字段
-  _.assign('MC.花名册.entries.No.999', 'name', '张三');  // No.999 不存在，会报错
-  _.assign('MC.花名册.entries.No.999', 'age', 25);       // 同样会失败
+  _.assign('MC.花名册.entries.No999', 'name', '张三');  // No999 不存在，会报错
+  _.assign('MC.花名册.entries.No999', 'age', 25);       // 同样会失败
   
   // ✅ 正确：应该一次性创建完整条目
-  _.assign('MC.花名册.entries', 'No.999', {"id":"No.999","name":"张三","age":25});
+  _.assign('MC.花名册.entries', 'No999', {"id":"No999","name":"张三","age":25});
   
   // ❌ 错误3：对不存在的路径使用 set 修改字段
-  _.set('MC.花名册.entries.No.999.name', null, '张三');  // No.999 不存在
+  _.set('MC.花名册.entries.No999.name', null, '张三');  // No999 不存在
   
   // ❌ 错误4：假设条目存在而直接修改字段
-  _.set('MC.花名册.entries.No.888.position', '科员', '主任');  // 如果 No.888 不存在会失败
+  _.set('MC.花名册.entries.No888.position', '科员', '主任');  // 如果 No888 不存在会失败
+  
+  // ❌ 错误5：键名包含点号（最危险的错误！）
+  _.assign('MC.花名册.entries', 'No.001', {...});  // 点号会破坏路径解析！
+  _.set('MC.花名册.entries.No.001.name', ...);     // 路径会被错误分割！
+  
+  // ❌ 错误6：向已存在的条目直接添加新字段（会报 SCHEMA VIOLATION！）
+  _.assign('MC.花名册.entries.No001', 'bust', '...');    // MVU schema 验证会拒绝！
+  _.assign('MC.花名册.entries.No001', 'waist', '...');   // 同样会报错！
+  
+  // ✅ 正确：必须用 _.assign 覆盖整个条目对象
+  _.assign('MC.花名册.entries', 'No001', { ...所有原字段, bust: '...', waist: '...' });
   ```
   
-  ### 🔑 记住这条核心规则
+  ### 🔑 记住这两条核心规则
   
-  **要创建或覆盖 entries 下的条目，必须用**：
+  **规则1：键名不能包含点号（.）**
   ```javascript
-  _.assign('MC.花名册.entries', '条目ID', { ... });  // 路径到 entries，键名是条目ID
+  // ❌ 错误
+  _.assign('MC.花名册.entries', 'No.001', {...});
+  // ✅ 正确
+  _.assign('MC.花名册.entries', 'No001', {...});
+  ```
+  
+  **规则2：要创建或覆盖 entries 下的条目，必须用 _.assign**：
+  ```javascript
+  _.assign('MC.花名册.entries', '条目ID', { ... });  // 路径到 entries，键名是条目ID（不含点号）
   ```
   
   **不要用**：

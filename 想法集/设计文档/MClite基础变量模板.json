@@ -53,7 +53,12 @@
         }
       },
       "entries": {
-        "$meta": { "extensible": true }
+        "$meta": {
+          "extensible": true,
+          "template": {
+            "$meta": { "extensible": true }
+          }
+        }
       }
     },
     "文档": {

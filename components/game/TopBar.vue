@@ -32,8 +32,14 @@
       </div>
     </div>
 
-    <!-- 中间：留空 -->
-    <div class="top-bar-center"></div>
+    <!-- 中间：版本号 -->
+    <div class="top-bar-center">
+      <div class="version-info" @click="$emit('open-changelog')" title="查看更新日志">
+        <span class="version-icon">📋</span>
+        <span class="version-text">MClite</span>
+        <span class="version-number">v0.3.0</span>
+      </div>
+    </div>
 
     <!-- 右侧：主题切换 + 全屏按钮 -->
     <div class="top-bar-right">
@@ -83,6 +89,7 @@ const props = withDefaults(defineProps<Props>(), {
 defineEmits<{
   (e: 'toggle-fullscreen'): void;
   (e: 'toggle-theme'): void;
+  (e: 'open-changelog'): void;
 }>();
 
 // ============ 计算属性 ============
@@ -284,6 +291,47 @@ const periodClass = computed(() => {
 // ============ 中间区域 ============
 .top-bar-center {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.version-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: rgba(99, 102, 241, 0.25);
+    border-color: rgba(99, 102, 241, 0.5);
+  }
+
+  .version-icon {
+    font-size: 14px;
+  }
+
+  .version-text {
+    font-size: var(--font-sm);
+    font-weight: 600;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+  }
+
+  .version-number {
+    font-size: var(--font-xs);
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.8);
+    padding: 1px 6px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+    font-family: monospace;
+  }
 }
 
 // ============ 右侧区域 ============
@@ -377,6 +425,24 @@ const periodClass = computed(() => {
       font-size: 16px;
     }
   }
+
+  .version-info {
+    padding: 3px 6px;
+    gap: 3px;
+
+    .version-icon {
+      font-size: 12px;
+    }
+
+    .version-text {
+      font-size: var(--font-xs);
+    }
+
+    .version-number {
+      font-size: 10px;
+      padding: 1px 4px;
+    }
+  }
 }
 
 // ============ 超小屏幕响应式 ============
@@ -407,6 +473,24 @@ const periodClass = computed(() => {
 
     // 超小屏幕隐藏地点
     display: none;
+  }
+
+  .version-info {
+    padding: 2px 4px;
+    gap: 2px;
+
+    .version-icon {
+      display: none;
+    }
+
+    .version-text {
+      font-size: 10px;
+    }
+
+    .version-number {
+      font-size: 9px;
+      padding: 0 3px;
+    }
   }
 }
 </style>

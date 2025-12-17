@@ -16,6 +16,7 @@
       :game-location="gameLocation"
       @toggle-fullscreen="toggleFullscreen"
       @toggle-theme="toggleTheme"
+      @open-changelog="showChangelog = true"
     />
 
     <!-- 中间区域：主内容 + 右侧导航 -->
@@ -43,6 +44,7 @@
         @open-save-manager="showSaveManager = true"
         @open-context-manager="showContextManager = true"
         @open-history-text="showHistoryText = true"
+        @open-changelog="showChangelog = true"
         @close-mobile="mobileSidebarVisible = false"
       />
 
@@ -173,6 +175,19 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- 更新日志面板 -->
+    <Teleport to="body">
+      <div
+        v-if="showChangelog"
+        class="modal-overlay fullscreen-modal changelog-overlay"
+        @click.self="showChangelog = false"
+      >
+        <div class="modal changelog-modal">
+          <ChangelogPanel @close="showChangelog = false" />
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -186,6 +201,7 @@ import Sidebar from './Sidebar.vue';
 import RosterPanel from '../roster/RosterPanel.vue';
 import DocumentPanel from '../document/DocumentPanel.vue';
 import HistoryTextPanel from '../history/HistoryTextPanel.vue';
+import ChangelogPanel from '../common/ChangelogPanel.vue';
 // AI过滤面板已禁用
 // import AIContextFilterPanel from '../debug/AIContextFilterPanel.vue';
 import SaveManager from '../save/SaveManager.vue';
@@ -278,6 +294,7 @@ const showHistoryText = ref(false);
 // MClite v2 面板
 const showRoster = ref(false);
 const showDocument = ref(false);
+const showChangelog = ref(false);
 
 // 主题状态
 const isDarkTheme = ref(false);
@@ -875,6 +892,29 @@ onUnmounted(() => {
   .document-modal {
     width: 100%;
     max-width: 800px;
+    max-height: 85vh;
+    height: 80vh;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+}
+
+// ============ 更新日志面板 ============
+.changelog-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 10008 !important;
+  padding: var(--spacing-md);
+
+  .changelog-modal {
+    width: 100%;
+    max-width: 700px;
     max-height: 85vh;
     height: 80vh;
     background: var(--bg-secondary);

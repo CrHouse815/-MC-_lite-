@@ -1239,15 +1239,21 @@ export const useMvuStore = defineStore('mvu', () => {
 
       case 'assign': {
         // _.assign('父路径', '键名', 值) - 在父路径下添加新键
+        // 注意：MVU 原生的 _.assign 要求父路径必须存在且是对象
+        // 如果父路径不存在，需要先创建父路径
         if (args.length < 3) {
           console.warn('[MvuStore] _.assign需要3个参数:', argsStr.substring(0, 50));
           return null;
         }
         const key = typeof args[1] === 'string' ? args[1] : String(args[1]);
         const fullPath = `${path}.${key}`;
+
+        // 【关键修复】返回特殊的 ASSIGN 类型，以便在执行时先确保父路径存在
         return {
-          type: 'SET',
+          type: 'ASSIGN',
           path: fullPath,
+          parentPath: path,
+          key,
           value: args[2],
           comment,
         };
@@ -1446,11 +1452,139 @@ export const useMvuStore = defineStore('mvu', () => {
   };
 
   /**
+   * 从 UpdateVariable 内容中提取所有 _.assign 命令的父路径
+   */
+  const extractAssignParentPaths = (content: string): string[] => {
+    const paths: string[] = [];
+
+    // 匹配 _.assign('父路径', '键名', 值) 格式
+    const assignRegex = /_\.assign\s*\(\s*['"]([^'"]+)['"]/gi;
+    let match;
+
+    while ((match = assignRegex.exec(content)) !== null) {
+      const parentPath = match[1];
+      if (parentPath && !paths.includes(parentPath)) {
+        paths.push(parentPath);
+      }
+    }
+
+    return paths;
+  };
+
+  /**
+   * 在调用 MVU parseMessage 前，确保所有 _.assign 命令的父路径存在
+   * 这解决了 MVU 原生 parseMessage 遇到 undefined 路径时报错的问题
+   */
+  const ensureAssignPathsExist = async (content: string, mvuDataObj: MvuData): Promise<void> => {
+    const parentPaths = extractAssignParentPaths(content);
+
+    if (parentPaths.length === 0) {
+      return;
+    }
+
+    console.log('[MvuStore] 发现 _.assign 命令，需要确保以下父路径存在:', parentPaths);
+
+    // 确保 stat_data 存在
+    if (!mvuDataObj.stat_data) {
+      mvuDataObj.stat_data = {};
+    }
+
+    let modified = false;
+
+    for (const targetPath of parentPaths) {
+      const pathParts = targetPath.split('.');
+      let current = mvuDataObj.stat_data;
+
+      // 遍历路径，创建缺失的中间对象
+      for (let i = 0; i < pathParts.length; i++) {
+        const key = pathParts[i];
+
+        if (current[key] === undefined || current[key] === null) {
+          // 创建空对象
+          console.log(`[MvuStore] 创建缺失路径: ${pathParts.slice(0, i + 1).join('.')}`);
+          current[key] = {};
+          modified = true;
+        } else if (typeof current[key] !== 'object') {
+          // 路径中间有原始值，跳过（让 MVU 报错）
+          console.warn(`[MvuStore] 路径 "${pathParts.slice(0, i + 1).join('.')}" 不是对象，跳过`);
+          break;
+        }
+
+        current = current[key];
+      }
+    }
+
+    // 如果有修改，保存到 MVU
+    if (modified) {
+      const mvu = getMvuGlobal();
+      if (mvu) {
+        try {
+          await mvu.replaceMvuData(mvuDataObj, currentOptions.value);
+          console.log('[MvuStore] 已保存创建的路径结构');
+        } catch (err) {
+          console.error('[MvuStore] 保存路径结构失败:', err);
+        }
+      }
+    }
+  };
+
+  /**
+   * 确保路径存在（创建中间路径）
+   * 用于 ASSIGN 操作前确保父路径是对象
+   */
+  const ensurePathExists = async (targetPath: string): Promise<boolean> => {
+    try {
+      const mvu = getMvuGlobal();
+      if (!mvu) return false;
+
+      const localMvuData = mvuService.getMvuData(currentOptions.value);
+      if (!localMvuData) return false;
+
+      // 确保 stat_data 存在
+      if (!localMvuData.stat_data) {
+        localMvuData.stat_data = {};
+      }
+
+      const pathParts = targetPath.split('.');
+      let current = localMvuData.stat_data;
+
+      // 遍历路径，创建缺失的中间对象
+      for (let i = 0; i < pathParts.length; i++) {
+        const key = pathParts[i];
+
+        if (current[key] === undefined || current[key] === null) {
+          // 创建空对象
+          console.log(`[MvuStore] 创建路径: ${pathParts.slice(0, i + 1).join('.')}`);
+          current[key] = {};
+        } else if (typeof current[key] !== 'object') {
+          // 路径中间有原始值，无法继续
+          console.warn(`[MvuStore] 路径 "${pathParts.slice(0, i + 1).join('.')}" 不是对象，无法创建子路径`);
+          return false;
+        }
+
+        current = current[key];
+      }
+
+      // 保存更新后的数据
+      await mvu.replaceMvuData(localMvuData, currentOptions.value);
+
+      // 同步本地缓存
+      // 使用 loadMvuData 来刷新缓存
+      await loadMvuData();
+
+      return true;
+    } catch (err) {
+      console.error('[MvuStore] 确保路径存在失败:', err);
+      return false;
+    }
+  };
+
+  /**
    * 执行单个变量命令
    */
   const executeCommand = async (command: VariableCommand): Promise<CommandExecutionResult> => {
     try {
-      const { type, path, value } = command;
+      const { type, path, value, parentPath } = command;
 
       console.log('[MvuStore] 执行命令:', {
         type,
@@ -1459,9 +1593,9 @@ export const useMvuStore = defineStore('mvu', () => {
         valuePreview: typeof value === 'object' ? JSON.stringify(value).substring(0, 200) + '...' : value,
       });
 
-      // 对于 SET 和 INIT，不需要获取当前值
+      // 对于 SET、INIT 和 ASSIGN，不需要获取当前值
       let currentValue: any;
-      if (type !== 'SET' && type !== 'INIT') {
+      if (type !== 'SET' && type !== 'INIT' && type !== 'ASSIGN') {
         currentValue = getVariable(path);
       }
 
@@ -1472,6 +1606,20 @@ export const useMvuStore = defineStore('mvu', () => {
         case 'INIT':
           newValue = value;
           break;
+
+        case 'ASSIGN': {
+          // 【关键修复】ASSIGN 操作：先确保父路径存在，再设置值
+          // 这解决了 MVU 原生 _.assign 在父路径不存在时失败的问题
+          if (parentPath) {
+            console.log(`[MvuStore] ASSIGN 操作：确保父路径 "${parentPath}" 存在...`);
+            const pathCreated = await ensurePathExists(parentPath);
+            if (!pathCreated) {
+              console.warn(`[MvuStore] 无法创建父路径 "${parentPath}"，尝试直接设置完整路径...`);
+            }
+          }
+          newValue = value;
+          break;
+        }
 
         case 'ADD':
           if (typeof currentValue === 'number' && typeof value === 'number') {
@@ -1686,6 +1834,11 @@ export const useMvuStore = defineStore('mvu', () => {
             const oldDataCopy = JSON.parse(JSON.stringify(workingData));
 
             console.log('[MvuStore] parseMessage 使用的数据，stat_data 键:', Object.keys(oldDataCopy.stat_data || {}));
+
+            // **【关键修复】在调用 parseMessage 前，预处理 _.assign 命令**
+            // 提取所有 _.assign 命令中的父路径，确保它们存在
+            // 这解决了 MVU 原生 parseMessage 遇到 undefined 路径时报错的问题
+            await ensureAssignPathsExist(updateContent, oldDataCopy);
 
             // MVU 的 parseMessage 直接处理整个内容
             const newData = await mvu.parseMessage(updateContent, oldDataCopy);

@@ -116,13 +116,17 @@ export interface AIMessage {
  */
 export interface VariableCommand {
   /** 命令类型 */
-  type: 'SET' | 'ADD' | 'SUB' | 'MUL' | 'DIV' | 'APPEND' | 'REMOVE' | 'CLEAR' | 'TOGGLE' | 'INIT';
+  type: 'SET' | 'ADD' | 'SUB' | 'MUL' | 'DIV' | 'APPEND' | 'REMOVE' | 'CLEAR' | 'TOGGLE' | 'INIT' | 'ASSIGN';
   /** 变量路径 */
   path: string;
   /** 变量值 */
   value?: any;
   /** 注释 */
   comment?: string;
+  /** 父路径（ASSIGN 类型专用） */
+  parentPath?: string;
+  /** 键名（ASSIGN 类型专用） */
+  key?: string;
 }
 
 /**
