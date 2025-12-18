@@ -35,6 +35,10 @@
               正在生成...
             </span>
           </div>
+          <!-- 版本徽章 -->
+          <div class="version-badge" title="MClite v0.5.5">
+            <span class="version-tag">MClite v0.5.5</span>
+          </div>
         </div>
 
         <!-- 主文本内容 - 使用内容块差异化渲染组件 -->
@@ -316,6 +320,22 @@ defineExpose({
   }
 }
 
+// 版本徽章
+.version-badge {
+  .version-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-family: monospace;
+    font-weight: 500;
+    color: var(--text-disabled);
+    background: var(--bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+}
+
 @keyframes streamingBlink {
   0%,
   100% {
@@ -356,9 +376,26 @@ defineExpose({
   }
 
   .content-header {
-    flex-direction: column;
+    // 保持 row 方向和两端对齐，确保时间和版本号分居两头
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+
+  .content-meta {
     gap: var(--spacing-sm);
-    align-items: flex-start;
+
+    .meta-item {
+      font-size: 11px;
+    }
+  }
+
+  .version-badge {
+    .version-tag {
+      padding: 1px 6px;
+      font-size: 9px;
+    }
   }
 
   .game-text {

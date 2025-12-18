@@ -99,6 +99,10 @@
         <span class="nav-icon">📜</span>
         <span v-if="!isCollapsed" class="nav-label">历史正文</span>
       </div>
+      <div class="nav-item footer-item highlight-item dev-tool" @click="$emit('open-variable-manager')">
+        <span class="nav-icon">🔧</span>
+        <span v-if="!isCollapsed" class="nav-label">变量管理器</span>
+      </div>
       <div class="divider"></div>
       <div class="nav-item footer-item" @click="$emit('open-changelog')">
         <span class="nav-icon">📋</span>
@@ -159,6 +163,7 @@ const emit = defineEmits<{
   (e: 'open-context-manager'): void;
   (e: 'open-history-text'): void;
   (e: 'open-changelog'): void;
+  (e: 'open-variable-manager'): void;
   (e: 'view-notice', id: string): void;
   (e: 'close-mobile'): void;
 }>();
@@ -600,6 +605,21 @@ const handleMenuClick = (menuId: string, disabled?: boolean) => {
       &:hover {
         background: rgba(59, 130, 246, 0.15);
         border-color: rgba(59, 130, 246, 0.3);
+      }
+    }
+
+    &.dev-tool {
+      background: rgba(245, 158, 11, 0.08);
+      border: 1px solid rgba(245, 158, 11, 0.15);
+
+      .nav-label {
+        color: #f59e0b;
+        font-weight: 500;
+      }
+
+      &:hover {
+        background: rgba(245, 158, 11, 0.15);
+        border-color: rgba(245, 158, 11, 0.3);
       }
     }
   }

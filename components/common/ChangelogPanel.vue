@@ -10,7 +10,6 @@
       <div class="header-left">
         <span class="header-icon">📋</span>
         <h3 class="header-title">更新日志</h3>
-        <span class="version-badge">v{{ currentVersion }}</span>
       </div>
       <div class="header-right">
         <button class="btn-refresh" @click="fetchChangelog" :disabled="isLoading" title="刷新">
@@ -102,9 +101,6 @@ import { ref, computed, onMounted } from 'vue';
 
 // ============ 配置 ============
 
-/** 当前版本号 */
-const CURRENT_VERSION = '0.3.2';
-
 /** GitHub 仓库信息 */
 const GITHUB_USER = 'CrHouse815';
 const GITHUB_REPO = '-MC-_lite-';
@@ -155,9 +151,6 @@ const cacheOptions = ref({
 });
 
 // ============ 计算属性 ============
-
-/** 当前版本号 */
-const currentVersion = computed(() => CURRENT_VERSION);
 
 /** GitHub 地址 */
 const githubUrl = computed(() => GITHUB_URL);
@@ -350,8 +343,6 @@ const clearBrowserCache = async (): Promise<void> => {
  */
 const getLocalChangelog = (): string => {
   return `# MClite 更新日志
-
-## v${CURRENT_VERSION} (最新版本)
 
 > 此为本地缓存版本，如需查看最新更新日志，请检查网络连接后重试。
 
@@ -695,15 +686,6 @@ onMounted(() => {
   font-size: var(--font-lg);
   font-weight: 600;
   color: var(--text-color);
-}
-
-.version-badge {
-  padding: 2px 8px;
-  background: var(--primary-color);
-  color: white;
-  font-size: var(--font-xs);
-  font-weight: 600;
-  border-radius: var(--radius-sm);
 }
 
 .header-right {

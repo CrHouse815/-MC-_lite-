@@ -14,6 +14,9 @@
       :game-date="gameDate"
       :game-period="gamePeriod"
       :game-location="gameLocation"
+      :player-name="playerName"
+      :player-position="playerPosition"
+      :player-department="playerDepartment"
       @toggle-fullscreen="toggleFullscreen"
       @toggle-theme="toggleTheme"
     />
@@ -44,6 +47,7 @@
         @open-context-manager="showContextManager = true"
         @open-history-text="showHistoryText = true"
         @open-changelog="showChangelog = true"
+        @open-variable-manager="showVariableManager = true"
         @close-mobile="mobileSidebarVisible = false"
       />
 
@@ -187,6 +191,19 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- 变量管理器面板 -->
+    <Teleport to="body">
+      <div
+        v-if="showVariableManager"
+        class="modal-overlay fullscreen-modal variable-manager-overlay"
+        @click.self="showVariableManager = false"
+      >
+        <div class="modal variable-manager-modal">
+          <VariableManagerPanel @close="showVariableManager = false" @variable-updated="handleVariableUpdated" />
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -201,6 +218,8 @@ import RosterPanel from '../roster/RosterPanel.vue';
 import DocumentPanel from '../document/DocumentPanel.vue';
 import HistoryTextPanel from '../history/HistoryTextPanel.vue';
 import ChangelogPanel from '../common/ChangelogPanel.vue';
+// 变量管理器
+import VariableManagerPanel from '../variable/VariableManagerPanel.vue';
 // AI过滤面板已禁用
 // import AIContextFilterPanel from '../debug/AIContextFilterPanel.vue';
 import SaveManager from '../save/SaveManager.vue';
@@ -234,11 +253,11 @@ const gameDate = computed(() => {
   return date;
 });
 
-/** 游戏时段（从MVU变量读取，自动响应变量更新） */
+/** 游戏时间（从MVU变量读取，24小时制HH:MM格式，自动响应变量更新） */
 const gamePeriod = computed(() => {
   updateVersion.value;
-  const period = getVariable('MC.系统.当前时间.时段', '');
-  return period;
+  const time = getVariable('MC.系统.当前时间.时间', '');
+  return time;
 });
 
 /** 当前地点（从MVU变量读取，自动响应变量更新） */
@@ -248,6 +267,27 @@ const gameLocation = computed(() => {
   return location;
 });
 
+/** 玩家姓名（从MVU变量读取，自动响应变量更新） */
+const playerName = computed(() => {
+  updateVersion.value;
+  const name = getVariable('MC.玩家.姓名', '');
+  return name;
+});
+
+/** 玩家职位（从MVU变量读取，自动响应变量更新） */
+const playerPosition = computed(() => {
+  updateVersion.value;
+  const position = getVariable('MC.玩家.职位', '');
+  return position;
+});
+
+/** 玩家部门（从MVU变量读取，自动响应变量更新） */
+const playerDepartment = computed(() => {
+  updateVersion.value;
+  const department = getVariable('MC.玩家.部门', '');
+  return department;
+});
+
 // 监听MVU数据变化，自动刷新UI
 watch(
   [statData, updateVersion],
@@ -255,8 +295,11 @@ watch(
     if (newData) {
       console.log('[GameLayout] MVU数据更新 (v' + version + '):', {
         日期: getVariable('MC.系统.当前时间.日期', ''),
-        时段: getVariable('MC.系统.当前时间.时段', ''),
+        时间: getVariable('MC.系统.当前时间.时间', ''),
         地点: getVariable('MC.系统.当前地点', ''),
+        玩家姓名: getVariable('MC.玩家.姓名', ''),
+        玩家职位: getVariable('MC.玩家.职位', ''),
+        玩家部门: getVariable('MC.玩家.部门', ''),
       });
     }
   },
@@ -294,6 +337,7 @@ const showHistoryText = ref(false);
 const showRoster = ref(false);
 const showDocument = ref(false);
 const showChangelog = ref(false);
+const showVariableManager = ref(false);
 
 // 主题状态
 const isDarkTheme = ref(false);
@@ -442,6 +486,18 @@ const handleSaveCreated = (id: string) => {
   console.log('[GameLayout] 存档已创建:', id);
   if (typeof toastr !== 'undefined') {
     toastr.success('存档已创建');
+  }
+};
+
+/**
+ * 处理变量更新
+ */
+const handleVariableUpdated = (path: string, value: any) => {
+  console.log('[GameLayout] 变量已更新:', path, value);
+  // 强制刷新MVU数据
+  forceRefresh();
+  if (typeof toastr !== 'undefined') {
+    toastr.success(`变量 ${path} 已更新`);
   }
 };
 
@@ -916,6 +972,29 @@ onUnmounted(() => {
     max-width: 700px;
     max-height: 85vh;
     height: 80vh;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+}
+
+// ============ 变量管理器面板 ============
+.variable-manager-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 10009 !important;
+  padding: var(--spacing-md);
+
+  .variable-manager-modal {
+    width: 100%;
+    max-width: 900px;
+    max-height: 90vh;
+    height: 85vh;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
