@@ -1,6 +1,7 @@
 <!--
-  花名册面板 v2
+  花名册面板 v3
   Schema-Driven 自动渲染
+  支持新版重构变量结构（条目直接在花名册下，Schema 引用规章制度）
   支持夜间模式适配 & 规整布局
 -->
 <template>
@@ -9,11 +10,12 @@
     <div class="panel-header">
       <div class="header-left">
         <span class="panel-icon">👥</span>
-        <h2>{{ roster.$meta?.description || '花名册' }}</h2>
+        <h2>{{ panelTitle }}</h2>
+        <span v-if="isV3Format" class="version-badge">v3</span>
       </div>
       <div class="header-right">
         <span class="entry-count">{{ entryCount }} 人</span>
-        <button class="close-btn" @click="$emit('close')" title="关闭">✕</button>
+        <button class="close-btn" title="关闭" @click="$emit('close')">✕</button>
       </div>
     </div>
 
@@ -140,6 +142,7 @@ defineEmits<{ (e: 'close'): void }>();
 const rosterStore = useRosterStore();
 const {
   roster,
+  rosterV3,
   isEmpty,
   entryCount,
   entriesByGroup,
@@ -149,19 +152,36 @@ const {
   isLoading,
   error,
   updateVersion,
+  isV3Format,
 } = storeToRefs(rosterStore);
 
-const { selectEntry, getEntryPrimaryKey, getEntryDisplayValue, getFieldsForGroup, refresh, initialize, destroy } =
-  rosterStore;
+const { selectEntry, getEntryPrimaryKey, getEntryDisplayValue, getFieldsForGroup, refresh, initialize } = rosterStore;
 
 /** 当前选中的分组 */
 const selectedGroup = ref<string | null>(null);
+
+/** 面板标题 */
+const panelTitle = computed(() => {
+  // 新版格式：尝试从 $schemaRef 获取标题
+  if (isV3Format.value && rosterV3.value.$schemaRef) {
+    return '人事档案';
+  }
+  // 旧版格式：从 $meta.description 获取
+  return roster.value.$meta?.description || '花名册';
+});
 
 // 监听 updateVersion 变化，用于调试和确保响应式更新
 watch(
   updateVersion,
   newVersion => {
-    console.log('[RosterPanel] updateVersion 变化:', newVersion, '当前条目数:', entryCount.value);
+    console.log(
+      '[RosterPanel] updateVersion 变化:',
+      newVersion,
+      '当前条目数:',
+      entryCount.value,
+      '格式:',
+      isV3Format.value ? 'v3' : 'v2',
+    );
   },
   { immediate: false },
 );
@@ -208,14 +228,14 @@ const formatFieldValue = (value: unknown, field: FieldDefinition): string => {
   return String(value);
 };
 
-onMounted(() => {
-  initialize();
+onMounted(async () => {
+  await initialize();
   // 默认选中第一个分组
   const groups = Object.keys(entriesByGroup.value);
   if (groups.length > 0) {
     selectedGroup.value = groups[0];
   }
-  console.log('[RosterPanel] 面板已挂载，初始条目数:', entryCount.value);
+  console.log('[RosterPanel] 面板已挂载，初始条目数:', entryCount.value, '格式:', isV3Format.value ? 'v3' : 'v2');
 });
 
 onUnmounted(() => {
@@ -290,6 +310,16 @@ onUnmounted(() => {
         color: var(--text-color);
       }
     }
+  }
+
+  .version-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    background: var(--primary-light);
+    color: var(--primary-color);
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
   }
 }
 

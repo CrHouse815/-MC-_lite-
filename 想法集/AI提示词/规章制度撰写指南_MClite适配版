@@ -1,0 +1,728 @@
+
+<Rulebook_Setting>
+
+uid: regulation_writing_guide_mclite
+trigger:
+  Title: 规章制度撰写指南（MClite适配版）
+  Comma_separated_list: 规章制度,公文写作,条例格式,制度设计,MClite变量
+content: |
+  # 规章制度撰写指南（MClite适配版）
+
+  ## 核心原则
+
+  所有规章制度的文本风格应当呈现为：**这是一份真实存在的、由正规机构制定的、经过层层审批的官方文件**。
+
+  无论内容本身是什么，文本的形式必须严肃、正式、规范，如同它真的会被打印出来、盖上公章、张贴在公告栏里。
+
+  正是这种「形式的一本正经」与「内容的离奇」之间的落差，构成了设定的核心张力。但撰写时不考虑这种落差——你只是在写一份正常的公文。
+
+  ---
+
+  ## MClite变量结构适配说明
+
+  在MClite系统中，规章制度存储在 `MC.文档` 路径下，具有三种特殊用途：
+  
+  1. **纯文本规章制度** - 仅提供叙事内容（如员工守则）
+  2. **花名册Schema定义文档** - 定义人员档案字段结构（需包含 `$rosterMeta` + `$groupDef` + `$fieldDef`）
+  3. **表单定义文档** - 定义申请表单字段和工作流（需包含 `$formMeta` + `$fieldDef`）
+
+  撰写规章制度时，需同时考虑：
+  - 文本内容的公文规范性
+  - 变量结构中 `$fieldDef` 等定义的技术准确性
+
+  ---
+
+  ## 文档基础结构（变量格式）
+
+  ```json
+  {
+    "文档名称": {
+      "title": "文档标题",
+      "description": "文档简要描述",
+      "order": 1,
+      "$rosterMeta": { ... },  // 可选：花名册Schema元数据
+      "$formMeta": { ... },    // 可选：表单元数据
+      "sections": {
+        "$meta": { "extensible": true },
+        "前言": {
+          "title": "前言",
+          "content": "正文开头内容...",
+          "order": 0
+        },
+        "第一章": {
+          "title": "第一章 章节标题",
+          "content": "章节概述（可选）",
+          "order": 1,
+          "$groupDef": { ... },  // 可选：花名册分组定义
+          "children": {
+            "$meta": { "extensible": true },
+            "第一条": {
+              "title": "第一条 条款标题",
+              "content": "条款正文内容",
+              "order": 1,
+              "$fieldDef": { ... }  // 可选：字段定义
+            }
+          }
+        }
+      }
+    }
+  }
+  ```
+
+  ---
+
+  ## 文件结构模板
+
+  standard_structure: |
+    【标题】
+    格式：《XX关于XX的XX（通知/规定/办法/条例/守则）》
+    存储位置：作为 `MC.文档.文档名.title` 的值
+    
+    示例：
+    - 《人事档案管理规定》
+    - 《物资申请管理办法》
+    - 《员工守则》
+    - 《个人需求申请管理办法》
+
+    【描述】
+    格式：简要说明文档用途
+    存储位置：作为 `MC.文档.文档名.description` 的值
+    
+    示例：
+    - "第七处人员档案登记与管理规范"
+    - "第七处物资领用申请流程规定"
+
+    【正文开头（前言）】
+    说明制定依据、目的、适用范围
+    存储位置：`MC.文档.文档名.sections.前言.content`
+    
+    常用句式：
+    - "本规定明确本处人员档案的登记标准与管理要求。所有在编人员信息须按本规定进行登记和维护。"
+    - "本办法适用于本处全体在编人员申请领用办公物资、工作装备及其他工作所需物品。"
+
+    【正文主体】
+    按章节组织，每章包含若干条款
+    存储位置：`MC.文档.文档名.sections.第X章.children.第X条`
+    
+    - 章节标题格式："第X章 章节名称"
+    - 条款标题格式："第X条 条款简述"（或仅"第X条"）
+    - 条款内容独立完整
+
+    【附则】（可选）
+    解释权归属、生效日期
+    存储位置：作为最后一章或独立section
+
+  ---
+
+  ## 语言规范
+
+  sentence_style: |
+    【句式特征】
+    - 使用长句、复合句，体现严谨性
+    - 主语明确，多用"应当"、"须"、"不得"、"禁止"等规范性动词
+    - 避免口语化表达，避免语气词
+    - 使用被动句式和无主句增强客观感
+
+    【常用规范性表述】
+    强制要求：应当、必须、须、一律
+    禁止事项：不得、禁止、严禁
+    许可事项：可以、允许、准许
+    条件限定：凡是、除……外、在……情况下
+    时间限定：自……起、于……前、在……期间
+
+  vocabulary_inventory: |
+    【公文高频词汇】
+
+    动词类：
+    执行、遵照、贯彻、落实、施行、办理、履行
+    核查、审批、备案、登记、签署、报送、移交
+    规范、优化、调整、完善、加强、确保、维护
+
+    名词类：
+    规定、条例、办法、细则、守则、须知、流程
+    事项、情形、范围、对象、职责、权限、期限
+    部门、科室、岗位、人员、负责人、当事人
+
+    连接词类：
+    根据、依照、按照、参照
+    鉴于、由于、为了、以便
+    如有、若遇、一经、凡属
+    以及、或者、并且、同时
+
+    修饰类：
+    有关、相应、具体、明确、规范、统一、严格
+    及时、按时、定期、如实、妥善、合理
+
+  ---
+
+  ## 格式细节
+
+  formatting_rules: |
+    【标点使用】
+    - 章节标题与正文之间不加标点
+    - 条款编号格式："第一条"、"第二条"
+    - 列举事项之间用分号，最后一项用句号
+
+    【层级关系】
+    - 第一级：章（第一章、第二章...）
+    - 第二级：条（第一条、第二条...）
+    - 第三级：项（（一）（二）...）或款
+
+    【变量结构中的order排序】
+    - 前言：order: 0
+    - 第一章：order: 1
+    - 第二章：order: 2
+    - 章内条款按出现顺序编号
+
+  ---
+
+  ## 花名册Schema定义文档示例
+
+  以下示例展示如何撰写同时包含公文内容和字段定义的规章制度：
+
+  example_roster_schema: |
+    存储路径：MC.文档.人事档案管理规定
+
+    ```json
+    {
+      "title": "人事档案管理规定",
+      "description": "第七处人员档案登记与管理规范",
+      "order": 1,
+
+      "$rosterMeta": {
+        "rosterId": "花名册",
+        "targetPath": "MC.花名册",
+        "primaryKey": "id",
+        "displayField": "name",
+        "groupByField": "department"
+      },
+
+      "sections": {
+        "$meta": { "extensible": true },
+
+        "前言": {
+          "title": "前言",
+          "content": "本规定明确第七处人员档案的登记标准与管理要求。所有在编人员信息须按本规定进行登记和维护。",
+          "order": 0
+        },
+
+        "第一章": {
+          "title": "第一章 基本信息登记",
+          "content": "",
+          "order": 1,
+
+          "$groupDef": {
+            "belongsTo": "花名册",
+            "groupId": "basic",
+            "label": "基本信息",
+            "order": 1,
+            "collapsed": false
+          },
+
+          "children": {
+            "$meta": { "extensible": true },
+
+            "第一条": {
+              "title": "第一条 员工编号",
+              "content": "每位员工入职时由综合管理科分配唯一编号，格式为NoXXX（三位数字）。编号一经分配不得更改。",
+              "order": 1,
+              "$fieldDef": {
+                "belongsTo": "花名册",
+                "fieldId": "id",
+                "label": "员工编号",
+                "type": "string",
+                "description": "唯一标识符，格式为NoXXX",
+                "showInList": true,
+                "order": 0
+              }
+            },
+
+            "第二条": {
+              "title": "第二条 姓名登记",
+              "content": "员工姓名须与有效身份证件一致，如有变更须及时向综合管理科报备。",
+              "order": 2,
+              "$fieldDef": {
+                "belongsTo": "花名册",
+                "fieldId": "name",
+                "label": "姓名",
+                "type": "string",
+                "description": "员工姓名",
+                "showInList": true,
+                "showInSummary": true,
+                "order": 1
+              }
+            },
+
+            "第三条": {
+              "title": "第三条 性别登记",
+              "content": "如实登记员工性别。",
+              "order": 3,
+              "$fieldDef": {
+                "belongsTo": "花名册",
+                "fieldId": "gender",
+                "label": "性别",
+                "type": "enum",
+                "options": ["女", "男"],
+                "default": "女",
+                "order": 2
+              }
+            },
+
+            "第四条": {
+              "title": "第四条 部门与职务",
+              "content": "登记员工所属部门及担任职务。部门调动须经综合管理科审批。",
+              "order": 4,
+              "$fieldDef": [
+                {
+                  "belongsTo": "花名册",
+                  "fieldId": "department",
+                  "label": "所属部门",
+                  "type": "string",
+                  "showInList": true,
+                  "order": 4
+                },
+                {
+                  "belongsTo": "花名册",
+                  "fieldId": "position",
+                  "label": "职务",
+                  "type": "string",
+                  "showInList": true,
+                  "order": 5
+                }
+              ]
+            }
+          }
+        },
+
+        "第二章": {
+          "title": "第二章 体态评估标准",
+          "content": "本处女性人员须符合以下体态标准，并定期进行复检。",
+          "order": 2,
+
+          "$groupDef": {
+            "belongsTo": "花名册",
+            "groupId": "bodyData",
+            "label": "体态评估数据",
+            "order": 2,
+            "collapsed": true
+          },
+
+          "children": {
+            "$meta": { "extensible": true },
+
+            "第五条": {
+              "title": "第五条 身高体重标准",
+              "content": "身高标准：管理层168-175cm，分析员165-172cm，文职158-168cm。体重须与身高匹配，保持健康体态。",
+              "order": 1,
+              "$fieldDef": [
+                {
+                  "belongsTo": "花名册",
+                  "fieldId": "height",
+                  "label": "身高",
+                  "type": "string",
+                  "description": "身高（如172cm）",
+                  "order": 10
+                },
+                {
+                  "belongsTo": "花名册",
+                  "fieldId": "weight",
+                  "label": "体重",
+                  "type": "string",
+                  "description": "体重（如58kg）",
+                  "order": 11
+                }
+              ]
+            },
+
+            "第六条": {
+              "title": "第六条 综合评级",
+              "content": "根据体态、能力、表现等综合因素评定等级：S级（特优）、A级（优秀）、B级（良好）、C级（合格）。",
+              "order": 2,
+              "$fieldDef": {
+                "belongsTo": "花名册",
+                "fieldId": "rating",
+                "label": "综合评级",
+                "type": "enum",
+                "options": ["S级", "A级", "B级", "C级"],
+                "showInList": true,
+                "showInSummary": true,
+                "order": 20
+              }
+            }
+          }
+        }
+      }
+    }
+    ```
+
+    【公文内容呈现效果】
+
+    《人事档案管理规定》
+
+    前言
+    本规定明确第七处人员档案的登记标准与管理要求。所有在编人员信息须按本规定进行登记和维护。
+
+    第一章 基本信息登记
+
+    第一条 员工编号
+    每位员工入职时由综合管理科分配唯一编号，格式为NoXXX（三位数字）。编号一经分配不得更改。
+
+    第二条 姓名登记
+    员工姓名须与有效身份证件一致，如有变更须及时向综合管理科报备。
+
+    第三条 性别登记
+    如实登记员工性别。
+
+    第四条 部门与职务
+    登记员工所属部门及担任职务。部门调动须经综合管理科审批。
+
+    第二章 体态评估标准
+    本处女性人员须符合以下体态标准，并定期进行复检。
+
+    第五条 身高体重标准
+    身高标准：管理层168-175cm，分析员165-172cm，文职158-168cm。体重须与身高匹配，保持健康体态。
+
+    第六条 综合评级
+    根据体态、能力、表现等综合因素评定等级：S级（特优）、A级（优秀）、B级（良好）、C级（合格）。
+
+  ---
+
+  ## 表单定义文档示例
+
+  以下示例展示如何撰写包含表单定义的管理办法：
+
+  example_form_definition: |
+    存储路径：MC.文档.物资申请管理办法
+
+    ```json
+    {
+      "title": "物资申请管理办法",
+      "description": "第七处物资领用申请流程规定",
+      "order": 2,
+
+      "$formMeta": {
+        "formId": "物资申请表",
+        "formName": "物资领用申请表",
+        "description": "用于申请领用办公物资、装备等",
+        "targetPath": "MC.申请记录.物资申请",
+        "workflow": [
+          { "step": 1, "name": "填写申请", "handler": "申请人" },
+          { "step": 2, "name": "直属上级审批", "handler": "直属上级", "canReject": true },
+          { "step": 3, "name": "综合管理科审核", "handler": "综合管理科", "canReject": true },
+          { "step": 4, "name": "物资发放", "handler": "后勤组" }
+        ],
+        "validDays": 30
+      },
+
+      "sections": {
+        "$meta": { "extensible": true },
+
+        "第一条": {
+          "title": "第一条 适用范围",
+          "content": "本办法适用于本处全体在编人员申请领用办公物资、工作装备及其他工作所需物品。",
+          "order": 1
+        },
+
+        "第二条": {
+          "title": "第二条 申请人信息",
+          "content": "申请人须如实填写个人基本信息。系统将自动读取申请人登记信息。",
+          "order": 2,
+          "$fieldDef": [
+            {
+              "belongsTo": "物资申请表",
+              "fieldId": "applicant_name",
+              "label": "申请人姓名",
+              "formPosition": 1,
+              "inputType": "readonly",
+              "source": "MC.玩家.姓名",
+              "required": true
+            },
+            {
+              "belongsTo": "物资申请表",
+              "fieldId": "applicant_dept",
+              "label": "所属部门",
+              "formPosition": 2,
+              "inputType": "readonly",
+              "source": "MC.玩家.部门",
+              "required": true
+            }
+          ]
+        },
+
+        "第三条": {
+          "title": "第三条 申请日期",
+          "content": "申请日期默认为提交当日，如需指定其他日期可在此修改。",
+          "order": 3,
+          "$fieldDef": {
+            "belongsTo": "物资申请表",
+            "fieldId": "apply_date",
+            "label": "申请日期",
+            "formPosition": 3,
+            "inputType": "date",
+            "defaultValue": "{{currentDate}}",
+            "required": true
+          }
+        },
+
+        "第四条": {
+          "title": "第四条 物资类别",
+          "content": "申请物资应按以下类别进行分类选择：办公用品、电子设备、工作装备、特殊物资。",
+          "order": 4,
+          "$fieldDef": {
+            "belongsTo": "物资申请表",
+            "fieldId": "item_category",
+            "label": "物资类别",
+            "formPosition": 4,
+            "inputType": "select",
+            "options": [
+              { "value": "office", "label": "办公用品" },
+              { "value": "electronic", "label": "电子设备" },
+              { "value": "equipment", "label": "工作装备" },
+              { "value": "special", "label": "特殊物资" }
+            ],
+            "required": true
+          }
+        },
+
+        "第五条": {
+          "title": "第五条 物资明细",
+          "content": "应明确填写所申请物资的具体名称、规格型号及数量。",
+          "order": 5,
+          "$fieldDef": {
+            "belongsTo": "物资申请表",
+            "fieldId": "items",
+            "label": "物资明细",
+            "formPosition": 5,
+            "inputType": "table",
+            "columns": [
+              { "key": "name", "label": "物资名称", "type": "text", "required": true },
+              { "key": "spec", "label": "规格型号", "type": "text" },
+              { "key": "quantity", "label": "数量", "type": "number", "min": 1, "required": true },
+              { "key": "unit", "label": "单位", "type": "select", "options": ["个", "件", "套", "箱", "盒"] }
+            ],
+            "minRows": 1,
+            "maxRows": 10,
+            "required": true
+          }
+        },
+
+        "第六条": {
+          "title": "第六条 申请理由",
+          "content": "须简要说明申请该物资的用途及必要性。",
+          "order": 6,
+          "$fieldDef": {
+            "belongsTo": "物资申请表",
+            "fieldId": "reason",
+            "label": "申请理由",
+            "formPosition": 6,
+            "inputType": "textarea",
+            "placeholder": "请说明申请物资的用途及必要性...",
+            "minLength": 10,
+            "maxLength": 500,
+            "required": true
+          }
+        }
+      }
+    }
+    ```
+
+    【公文内容呈现效果】
+
+    《物资申请管理办法》
+
+    第一条 适用范围
+    本办法适用于本处全体在编人员申请领用办公物资、工作装备及其他工作所需物品。
+
+    第二条 申请人信息
+    申请人须如实填写个人基本信息。系统将自动读取申请人登记信息。
+
+    第三条 申请日期
+    申请日期默认为提交当日，如需指定其他日期可在此修改。
+
+    第四条 物资类别
+    申请物资应按以下类别进行分类选择：办公用品、电子设备、工作装备、特殊物资。
+
+    第五条 物资明细
+    应明确填写所申请物资的具体名称、规格型号及数量。
+
+    第六条 申请理由
+    须简要说明申请该物资的用途及必要性。
+
+  ---
+
+  ## 纯文本规章制度示例
+
+  以下示例展示不包含字段定义的纯叙事文档：
+
+  example_plain_regulation: |
+    存储路径：MC.文档.员工守则
+
+    ```json
+    {
+      "title": "员工守则",
+      "description": "国家特别事务管理局第七执行处《员工守则》",
+      "order": 10,
+      "sections": {
+        "$meta": { "extensible": true },
+
+        "第一章": {
+          "title": "第一章 总则",
+          "content": "",
+          "order": 1,
+          "children": {
+            "$meta": { "extensible": true },
+            "第一条": {
+              "title": "第一条",
+              "content": "本处全称为「国家特别事务管理局第七执行处」，隶属于国家安全系统。",
+              "order": 1
+            },
+            "第二条": {
+              "title": "第二条",
+              "content": "本处全体在编人员均须遵守本守则之规定。",
+              "order": 2
+            }
+          }
+        },
+
+        "第二章": {
+          "title": "第二章 日常工作规范",
+          "content": "",
+          "order": 2,
+          "children": {
+            "$meta": { "extensible": true },
+            "第三条": {
+              "title": "第三条",
+              "content": "工作时间为周一至周五 09:00-18:00，午休时间为 12:00-13:30。",
+              "order": 1
+            },
+            "第四条": {
+              "title": "第四条",
+              "content": "工作时间内，全体人员应坚守岗位、专注工作。",
+              "order": 2
+            }
+          }
+        }
+      }
+    }
+    ```
+
+  ---
+
+  ## 写作要点
+
+  content_principles: |
+    【具体明确】
+    - 适用对象要明确：全体员工 / 女性员工 / 本科室人员
+    - 适用场景要明确：工作期间 / 在办公区内 / 执行公务时
+    - 执行要求要明确：具体动作、时间节点、责任人
+
+    【逻辑自洽】
+    - 条款之间不矛盾
+    - 有总则就有分则
+    - 有要求就有例外情形的说明（如有必要）
+    - 有规定就有不遵守时的处理方式（如有必要）
+
+    【语气恒定】
+    - 无论规定什么内容，语气始终保持公文的严肃性
+    - 不出现任何解释"为什么要这样规定"的内容
+    - 不出现任何暗示内容特殊性的措辞
+    - 内容写出来，就是既定事实，不需要说服任何人
+
+    【变量结构对应】
+    - 条款标题对应 `title` 字段
+    - 条款正文对应 `content` 字段
+    - 当条款定义数据字段时，添加 `$fieldDef`
+    - 当章节定义字段分组时，添加 `$groupDef`
+    - 保持 order 字段的连续性和逻辑性
+
+  ---
+
+  ## $fieldDef 属性速查
+
+  roster_field_types: |
+    【花名册字段类型】
+    $fieldDef 中的 type 属性可选值：
+    
+    | type | 说明 | 示例值 |
+    |------|------|--------|
+    | string | 单行文本 | "XXX", "No001" |
+    | number | 数字 | 27, 5, 92 |
+    | text | 多行文本 | "详细备注..." |
+    | enum | 枚举选择 | "管理层", "S级" |
+    | tags | 标签数组 | ["严厉", "一丝不苟"] |
+    | boolean | 布尔值 | true, false |
+
+    【花名册字段属性】
+    | 属性 | 类型 | 说明 |
+    |------|------|------|
+    | belongsTo | string | 归属的花名册ID |
+    | fieldId | string | 字段唯一标识 |
+    | label | string | 显示名称 |
+    | type | string | 字段类型 |
+    | description | string | 字段描述 |
+    | showInList | boolean | 是否在列表显示 |
+    | showInSummary | boolean | 是否在摘要显示 |
+    | order | number | 排序位置 |
+    | options | array | enum类型的可选值 |
+    | default | any | 默认值 |
+
+  form_field_types: |
+    【表单字段类型】
+    $fieldDef 中的 inputType 属性可选值：
+    
+    | inputType | 说明 | 特殊属性 |
+    |-----------|------|----------|
+    | text | 单行文本 | maxLength |
+    | textarea | 多行文本 | minLength, maxLength |
+    | number | 数字 | min, max |
+    | date | 日期选择 | - |
+    | datetime | 日期时间 | - |
+    | select | 下拉选择 | options, sourceType, sourcePath |
+    | radio | 单选按钮 | options |
+    | checkbox | 复选框 | checkboxLabel, mustBeTrue |
+    | readonly | 只读显示 | source |
+    | table | 动态表格 | columns, minRows, maxRows |
+
+    【表单字段属性】
+    | 属性 | 类型 | 说明 |
+    |------|------|------|
+    | belongsTo | string | 归属的表单ID |
+    | fieldId | string | 字段唯一标识 |
+    | label | string | 显示标签 |
+    | formPosition | number | 表单中的位置 |
+    | inputType | string | 控件类型 |
+    | required | boolean | 是否必填 |
+    | defaultValue | any | 默认值 |
+    | source | string | 数据来源路径 |
+    | options | array | 选项列表 |
+    | placeholder | string | 占位提示 |
+
+  ---
+
+  ## 注意事项
+
+  important_notes: |
+    1. **键名规范**：文档名、章节ID、条款ID不能包含点号(.)，这是路径分隔符
+       - 正确：`第一章`、`第一条`、`人事档案管理规定`
+       - 错误：`第一.章`、`规定.1`
+    
+    2. **$meta标记**：所有 sections 和 children 对象必须包含 `"$meta": { "extensible": true }`
+       - 这允许AI在运行时动态添加新章节或条款
+    
+    3. **order字段**：确保同级节点的order值不重复，建议使用连续整数
+       - 前言通常用 order: 0
+       - 章节从 order: 1 开始递增
+       - 章内条款也从 order: 1 开始递增
+    
+    4. **belongsTo一致性**：
+       - 花名册相关的 `$fieldDef` 和 `$groupDef` 的 belongsTo 必须与 `$rosterMeta.rosterId` 一致
+       - 表单相关的 `$fieldDef` 的 belongsTo 必须与 `$formMeta.formId` 一致
+    
+    5. **字段ID唯一性**：同一花名册或表单内的 fieldId 必须唯一，不能重复
+    
+    6. **内容与定义分离**：
+       - `content` 字段存储公文文本内容
+       - `$fieldDef` 存储技术定义
+       - 两者应相互呼应但各司其职
+
+</Rulebook_Setting>

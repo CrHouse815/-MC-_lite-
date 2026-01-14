@@ -25,6 +25,87 @@ import {
 } from '../types/document';
 import { useMvuStore } from './mvuStore';
 
+/**
+ * 尝试解析可能被字符串化的文档数据
+ * 当MVU框架因为JSON内包含转义引号而错误地将对象存储为字符串时使用
+ * @param value 可能是字符串化的JSON的值
+ * @returns 解析后的对象，如果无法解析则返回原值
+ */
+function tryParseStringifiedValue(value: unknown): unknown {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  // 检查是否看起来像JSON对象或数组
+  const trimmed = value.trim();
+  if (!((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']')))) {
+    return value;
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    console.log('[DocumentStore] 成功解析字符串化的文档数据');
+    return parsed;
+  } catch (e) {
+    // 如果标准解析失败，尝试修复常见的转义问题
+    try {
+      // 有时字符串会被双重转义，尝试处理
+      const unescaped = value.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+      if (unescaped !== value) {
+        const parsed = JSON.parse(unescaped);
+        console.log('[DocumentStore] 成功解析双重转义的文档数据');
+        return parsed;
+      }
+    } catch {
+      // 忽略二次尝试的错误
+    }
+
+    console.warn('[DocumentStore] 无法解析字符串化的文档数据:', e);
+    return value;
+  }
+}
+
+/**
+ * 修复文档容器中可能被字符串化的文档条目
+ * @param container 原始文档容器
+ * @returns 修复后的文档容器
+ */
+function fixStringifiedDocuments(container: Record<string, unknown>): Record<string, unknown> {
+  const fixed: Record<string, unknown> = {};
+  let hasStringifiedDocs = false;
+
+  for (const [key, value] of Object.entries(container)) {
+    if (key === '$meta') {
+      fixed[key] = value;
+      continue;
+    }
+
+    // 检查文档值是否为字符串（应该是对象）
+    if (typeof value === 'string') {
+      console.warn(`[DocumentStore] 检测到字符串化的文档: "${key}"，尝试修复...`);
+      hasStringifiedDocs = true;
+      const parsed = tryParseStringifiedValue(value);
+
+      // 验证解析结果是否是有效的文档条目
+      if (parsed && typeof parsed === 'object' && 'title' in (parsed as Record<string, unknown>)) {
+        console.log(`[DocumentStore] 文档 "${key}" 修复成功`);
+        fixed[key] = parsed;
+      } else {
+        console.error(`[DocumentStore] 文档 "${key}" 修复失败，保持原值`);
+        fixed[key] = value;
+      }
+    } else {
+      fixed[key] = value;
+    }
+  }
+
+  if (hasStringifiedDocs) {
+    console.log('[DocumentStore] 已完成字符串化文档的修复处理');
+  }
+
+  return fixed;
+}
+
 export const useDocumentStore = defineStore('document', () => {
   const mvuStore = useMvuStore();
 
@@ -67,6 +148,13 @@ export const useDocumentStore = defineStore('document', () => {
     if (isLegacySingleDocument(rawData)) {
       console.log('[DocumentStore] 检测到旧版单文档结构，进行转换');
       return convertLegacyToMultiDoc(rawData);
+    }
+
+    // 【关键修复】检测并修复字符串化的文档条目
+    // 当文档内容中包含特殊字符（如嵌套引号）时，MVU可能会将整个对象存储为JSON字符串
+    if (rawData && typeof rawData === 'object') {
+      const fixedData = fixStringifiedDocuments(rawData as Record<string, unknown>);
+      return fixedData as DocumentsContainer;
     }
 
     return rawData as DocumentsContainer;
@@ -195,8 +283,18 @@ export const useDocumentStore = defineStore('document', () => {
     console.log('[DocumentStore] documentsContainer keys:', Object.keys(documentsContainer.value));
 
     // 检查文档是否存在（排除 $meta）
-    const doc = documentsContainer.value[docId];
-    console.log('[DocumentStore] 查找到的文档:', doc ? '存在' : '不存在', doc);
+    let doc = documentsContainer.value[docId];
+    console.log('[DocumentStore] 查找到的文档:', doc ? '存在' : '不存在', typeof doc);
+
+    // 【关键修复】如果文档是字符串类型，尝试解析它
+    if (typeof doc === 'string') {
+      console.warn('[DocumentStore] 检测到字符串类型的文档，尝试解析...');
+      const parsed = tryParseStringifiedValue(doc);
+      if (parsed && typeof parsed === 'object' && 'title' in (parsed as Record<string, unknown>)) {
+        doc = parsed as DocumentEntry;
+        console.log('[DocumentStore] 文档解析成功:', (doc as DocumentEntry).title);
+      }
+    }
 
     if (doc && typeof doc === 'object' && 'title' in doc) {
       console.log('[DocumentStore] 切换到文档:', docId, '当前文档ID:', currentDocId.value);

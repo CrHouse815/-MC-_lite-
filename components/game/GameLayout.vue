@@ -31,6 +31,7 @@
         :is-streaming="aiIsStreaming"
         :variable-changes="aiVariableChanges"
         :last-update-time="aiLastUpdateTime"
+        @game-start="handleGameStart"
       />
 
       <!-- 右侧导航栏 -->
@@ -63,8 +64,8 @@
     <button
       v-if="isMobileView && !mobileSidebarVisible"
       class="mobile-menu-fab"
-      @click="mobileSidebarVisible = true"
       title="打开菜单"
+      @click="mobileSidebarVisible = true"
     >
       <span class="fab-icon">☰</span>
     </button>
@@ -179,6 +180,15 @@
       </div>
     </Teleport>
 
+    <!-- MClite v2 表单面板 -->
+    <Teleport to="body">
+      <div v-if="showForm" class="modal-overlay fullscreen-modal form-overlay" @click.self="showForm = false">
+        <div class="modal form-modal">
+          <FormPanel @close="showForm = false" />
+        </div>
+      </div>
+    </Teleport>
+
     <!-- 更新日志面板 -->
     <Teleport to="body">
       <div
@@ -204,6 +214,17 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- AI响应审查对话框 -->
+    <Teleport to="body">
+      <AIResponseReviewDialog
+        :visible="showReviewDialog"
+        :review-result="currentReviewResult"
+        :is-processing="isReviewProcessing"
+        @confirm="handleReviewConfirm"
+        @rollback="handleReviewRollback"
+      />
+    </Teleport>
   </div>
 </template>
 
@@ -216,10 +237,13 @@ import Sidebar from './Sidebar.vue';
 // MClite v2 面板（Schema-Driven）
 import RosterPanel from '../roster/RosterPanel.vue';
 import DocumentPanel from '../document/DocumentPanel.vue';
+import FormPanel from '../form/FormPanel.vue';
 import HistoryTextPanel from '../history/HistoryTextPanel.vue';
 import ChangelogPanel from '../common/ChangelogPanel.vue';
 // 变量管理器
 import VariableManagerPanel from '../variable/VariableManagerPanel.vue';
+// AI响应审查对话框
+import AIResponseReviewDialog from '../common/AIResponseReviewDialog.vue';
 // AI过滤面板已禁用
 // import AIContextFilterPanel from '../debug/AIContextFilterPanel.vue';
 import SaveManager from '../save/SaveManager.vue';
@@ -237,6 +261,14 @@ const {
   lastUpdateTime: aiLastUpdateTime,
   variableChanges: aiVariableChanges,
   sendMessageToAI,
+  // 审查功能
+  reviewModeEnabled,
+  showReviewDialog,
+  currentReviewResult,
+  isReviewProcessing,
+  confirmReview,
+  rollbackReview,
+  toggleReviewMode,
 } = useAIInteraction();
 
 // ============ 存档管理 ============
@@ -336,6 +368,7 @@ const showHistoryText = ref(false);
 // MClite v2 面板
 const showRoster = ref(false);
 const showDocument = ref(false);
+const showForm = ref(false);
 const showChangelog = ref(false);
 const showVariableManager = ref(false);
 
@@ -378,6 +411,11 @@ const handleMenuChange = (menuId: string) => {
     showRoster.value = true;
     return;
   }
+  // 表单面板使用模态框显示
+  if (menuId === 'forms') {
+    showForm.value = true;
+    return;
+  }
   currentView.value = menuId;
   console.log('[GameLayout] 切换到视图:', menuId);
 };
@@ -406,6 +444,28 @@ const handleClearError = () => {
 };
 
 /**
+ * 处理开局面板发送的开始游戏请求
+ * @param prompt 开局提示词
+ */
+const handleGameStart = async (prompt: string): Promise<void> => {
+  console.log('[GameLayout] 收到开始游戏请求，提示词长度:', prompt.length);
+
+  try {
+    // 发送开局提示词给AI
+    await sendMessageToAI(prompt);
+
+    if (typeof toastr !== 'undefined') {
+      toastr.success('游戏开始，正在生成开局场景...', '开始游戏', { timeOut: 3000 });
+    }
+  } catch (error) {
+    console.error('[GameLayout] 开始游戏失败:', error);
+    if (typeof toastr !== 'undefined') {
+      toastr.error('开始游戏失败，请重试', '错误', { timeOut: 3000 });
+    }
+  }
+};
+
+/**
  * 切换主题
  */
 const toggleTheme = () => {
@@ -431,10 +491,8 @@ const handleSaveGame = async () => {
       if (typeof toastr !== 'undefined') {
         toastr.success('游戏已保存');
       }
-    } else {
-      if (typeof toastr !== 'undefined') {
-        toastr.error('保存失败');
-      }
+    } else if (typeof toastr !== 'undefined') {
+      toastr.error('保存失败');
     }
   } catch (error) {
     console.error('[GameLayout] 保存失败:', error);
@@ -455,10 +513,8 @@ const handleLoadGame = async () => {
       if (typeof toastr !== 'undefined') {
         toastr.success('游戏已加载');
       }
-    } else {
-      if (typeof toastr !== 'undefined') {
-        toastr.info('没有可加载的存档');
-      }
+    } else if (typeof toastr !== 'undefined') {
+      toastr.info('没有可加载的存档');
     }
   } catch (error) {
     console.error('[GameLayout] 加载失败:', error);
@@ -498,6 +554,34 @@ const handleVariableUpdated = (path: string, value: any) => {
   forceRefresh();
   if (typeof toastr !== 'undefined') {
     toastr.success(`变量 ${path} 已更新`);
+  }
+};
+
+// ============ AI响应审查处理 ============
+
+/**
+ * 处理审查确认
+ */
+const handleReviewConfirm = async () => {
+  console.log('[GameLayout] 用户确认AI响应审查');
+  try {
+    await confirmReview();
+    // 确认后刷新MVU数据
+    forceRefresh();
+  } catch (error) {
+    console.error('[GameLayout] 审查确认处理失败:', error);
+  }
+};
+
+/**
+ * 处理审查回退
+ */
+const handleReviewRollback = async () => {
+  console.log('[GameLayout] 用户回退AI响应');
+  try {
+    await rollbackReview();
+  } catch (error) {
+    console.error('[GameLayout] 审查回退处理失败:', error);
   }
 };
 
@@ -949,6 +1033,29 @@ onUnmounted(() => {
     max-width: 800px;
     max-height: 85vh;
     height: 80vh;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+}
+
+// ============ MClite v2 表单面板 ============
+.form-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 10008 !important;
+  padding: var(--spacing-md);
+
+  .form-modal {
+    width: 100%;
+    max-width: 900px;
+    max-height: 90vh;
+    height: 85vh;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);

@@ -10,6 +10,7 @@
  */
 
 import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { ReviewResult, aiResponseReviewService } from '../services/AIResponseReviewService';
 import { contextManagerService } from '../services/ContextManagerService';
 import { saveService, type AIContentData } from '../services/SaveService';
 import { useAppStore } from '../stores/appStore';
@@ -90,6 +91,34 @@ export function useAIInteraction() {
 
   /** 当前过滤预设（已禁用） */
   const currentFilterPreset = ref<string>('standard');
+
+  // ========== AI响应审查状态 ==========
+
+  /** 是否启用审查模式（默认启用） */
+  const reviewModeEnabled = ref(true);
+
+  /** 是否显示审查对话框 */
+  const showReviewDialog = ref(false);
+
+  /** 当前审查结果 */
+  const currentReviewResult = ref<ReviewResult | null>(null);
+
+  /** 待处理的AI回复缓存（审查通过前不执行后续操作） */
+  const pendingAIResponse = ref<string | null>(null);
+
+  /** 待处理的生成ID */
+  const pendingGenerationId = ref<string | null>(null);
+
+  /** 审查处理中状态 */
+  const isReviewProcessing = ref(false);
+
+  /** 审查前的内容快照（用于回退时恢复） */
+  const preReviewContentSnapshot = ref<{
+    currentContent: string;
+    swipes: string[];
+    currentSwipeIndex: number;
+    lastAIResponse: string;
+  } | null>(null);
 
   // ========== 事件监听器引用 ==========
 
@@ -215,7 +244,7 @@ export function useAIInteraction() {
   /**
    * 处理AI生成结束
    * 关键修复：保存完整的AI回复内容，用于注入到下一次请求的上下文
-   * 增强：添加响应格式验证
+   * 增强：添加响应格式验证和用户审查流程
    */
   const handleGenerationEnd = async (finalText: string, generationId: string): Promise<void> => {
     if (!finalText) {
@@ -231,72 +260,244 @@ export function useAIInteraction() {
     try {
       error.value = null;
 
-      // 【增强】验证响应格式
-      const validation = validateResponseFormat(finalText);
+      // 【审查模式】如果启用了审查模式，先进行格式审查并等待用户确认
+      if (reviewModeEnabled.value) {
+        console.log('[useAIInteraction] 审查模式启用，开始审查AI回复...');
 
-      if (!validation.isValid) {
-        console.warn('[useAIInteraction] AI响应格式不完整:', validation.missingTags);
-        // 显示用户提示
-        if (typeof toastr !== 'undefined') {
-          toastr.warning(`AI响应缺少: ${validation.missingTags.join(', ')}`, '格式警告', { timeOut: 3000 });
-        }
-      }
+        // 【关键修复】保存审查前的内容快照，用于回退时恢复
+        preReviewContentSnapshot.value = {
+          currentContent: currentContent.value,
+          swipes: [...swipes.value],
+          currentSwipeIndex: currentSwipeIndex.value,
+          lastAIResponse: lastAIResponse.value,
+        };
+        console.log('[useAIInteraction] 已保存审查前内容快照，内容长度:', currentContent.value.length);
 
-      // 【关键修复】保存完整的AI回复内容
-      // 这将在下一次请求时被注入到上下文中，确保AI能看到上一次回复的所有内容
-      lastAIResponse.value = finalText;
-      console.log('[useAIInteraction] 已保存AI回复用于下次上下文注入');
+        // 执行审查
+        const reviewResult = aiResponseReviewService.review(finalText);
+        currentReviewResult.value = reviewResult;
 
-      // 提取显示文本（优先提取gametxt内容）
-      // 即使格式不完整也尝试处理（容错）
-      const displayText = validation.hasGameText ? extractGameText(finalText) : '';
+        // 缓存待处理的AI回复
+        pendingAIResponse.value = finalText;
+        pendingGenerationId.value = generationId;
 
-      if (displayText) {
-        // 检查是否是为现有内容生成swipe
-        const isSwipeGeneration = (window as any).__currentSwipeGeneration;
-
-        if (isSwipeGeneration) {
-          // 添加到swipes数组
-          swipes.value.push(displayText);
-          currentSwipeIndex.value = swipes.value.length - 1;
+        // 先提取并显示游戏文本，让用户能在审查对话框中看到内容
+        const displayText = extractGameText(finalText);
+        if (displayText) {
           currentContent.value = displayText;
-          delete (window as any).__currentSwipeGeneration;
-          console.log('[useAIInteraction] 新swipe已添加');
-        } else {
-          // 正常更新内容
-          currentContent.value = displayText;
-          swipes.value = [displayText];
-          currentSwipeIndex.value = 0;
-          console.log('[useAIInteraction] 内容已更新');
         }
 
-        lastUpdateTime.value = getCurrentTime();
-      } else if (!validation.hasGameText) {
-        console.warn('[useAIInteraction] 未提取到有效的显示文本（缺少gametxt标签）');
+        // 显示审查对话框，等待用户确认
+        showReviewDialog.value = true;
+        isStreaming.value = false;
+        // 保持 isProcessing 为 true，直到用户确认或回退
+
+        console.log('[useAIInteraction] 审查结果:', {
+          passed: reviewResult.passed,
+          issueCount: reviewResult.issues.length,
+          variableCommands: reviewResult.variableCheck?.commands?.length || 0,
+        });
+
+        // 审查流程中，不立即执行后续操作，等待用户确认
+        return;
       }
 
-      // 解析并执行变量更新指令（只在有UpdateVariable标签时执行）
-      if (validation.hasUpdateVariable) {
-        await parseAndUpdateVariables(finalText);
-      }
-
-      // 处理上下文管理：提取历史记录和历史正文，自动更新分段
-      await processContextManager(finalText);
-
-      // 保存AI回复到酒馆聊天记录
-      await saveAIReplyToChat(finalText);
-
-      // 执行自动存档（AI回复结束后）
-      await performAutoSave();
-
-      isProcessing.value = false;
-      isStreaming.value = false;
+      // 【非审查模式】直接处理AI回复（原有逻辑）
+      await processAIResponseDirectly(finalText, generationId);
     } catch (err) {
       console.error('[useAIInteraction] 处理AI回复失败:', err);
       error.value = err instanceof Error ? err.message : '处理AI回复失败';
       isProcessing.value = false;
       isStreaming.value = false;
     }
+  };
+
+  /**
+   * 直接处理AI回复（不经过审查流程）
+   * 提取自原 handleGenerationEnd，用于审查确认后或非审查模式下的处理
+   */
+  const processAIResponseDirectly = async (finalText: string, generationId: string): Promise<void> => {
+    // 【增强】验证响应格式
+    const validation = validateResponseFormat(finalText);
+
+    if (!validation.isValid) {
+      console.warn('[useAIInteraction] AI响应格式不完整:', validation.missingTags);
+      // 显示用户提示
+      if (typeof toastr !== 'undefined') {
+        toastr.warning(`AI响应缺少: ${validation.missingTags.join(', ')}`, '格式警告', { timeOut: 3000 });
+      }
+    }
+
+    // 【关键修复】保存完整的AI回复内容
+    // 这将在下一次请求时被注入到上下文中，确保AI能看到上一次回复的所有内容
+    lastAIResponse.value = finalText;
+    console.log('[useAIInteraction] 已保存AI回复用于下次上下文注入');
+
+    // 提取显示文本（优先提取gametxt内容）
+    // 即使格式不完整也尝试处理（容错）
+    const displayText = validation.hasGameText ? extractGameText(finalText) : '';
+
+    if (displayText) {
+      // 检查是否是为现有内容生成swipe
+      const isSwipeGeneration = (window as any).__currentSwipeGeneration;
+
+      if (isSwipeGeneration) {
+        // 添加到swipes数组
+        swipes.value.push(displayText);
+        currentSwipeIndex.value = swipes.value.length - 1;
+        currentContent.value = displayText;
+        delete (window as any).__currentSwipeGeneration;
+        console.log('[useAIInteraction] 新swipe已添加');
+      } else {
+        // 正常更新内容
+        currentContent.value = displayText;
+        swipes.value = [displayText];
+        currentSwipeIndex.value = 0;
+        console.log('[useAIInteraction] 内容已更新');
+      }
+
+      lastUpdateTime.value = getCurrentTime();
+    } else if (!validation.hasGameText) {
+      console.warn('[useAIInteraction] 未提取到有效的显示文本（缺少gametxt标签）');
+    }
+
+    // 解析并执行变量更新指令（只在有UpdateVariable标签时执行）
+    if (validation.hasUpdateVariable) {
+      await parseAndUpdateVariables(finalText);
+    }
+
+    // 处理上下文管理：提取历史记录和历史正文，自动更新分段
+    await processContextManager(finalText);
+
+    // 保存AI回复到酒馆聊天记录
+    await saveAIReplyToChat(finalText);
+
+    // 执行自动存档（AI回复结束后）
+    await performAutoSave();
+
+    isProcessing.value = false;
+    isStreaming.value = false;
+  };
+
+  // ========== 审查流程处理 ==========
+
+  /**
+   * 用户确认审查结果，继续执行后续操作
+   */
+  const confirmReview = async (): Promise<void> => {
+    if (!pendingAIResponse.value) {
+      console.warn('[useAIInteraction] 没有待处理的AI回复');
+      return;
+    }
+
+    console.log('[useAIInteraction] 用户确认审查，继续处理AI回复');
+    isReviewProcessing.value = true;
+
+    try {
+      // 关闭审查对话框
+      showReviewDialog.value = false;
+
+      // 执行后续处理
+      await processAIResponseDirectly(pendingAIResponse.value, pendingGenerationId.value || '');
+
+      // 清理缓存
+      pendingAIResponse.value = null;
+      pendingGenerationId.value = null;
+      currentReviewResult.value = null;
+      preReviewContentSnapshot.value = null; // 清理快照
+
+      console.log('[useAIInteraction] 审查确认处理完成');
+    } catch (err) {
+      console.error('[useAIInteraction] 审查确认处理失败:', err);
+      error.value = err instanceof Error ? err.message : '处理失败';
+    } finally {
+      isReviewProcessing.value = false;
+    }
+  };
+
+  /**
+   * 用户回退审查结果，取消本次AI回复
+   * 【修复】恢复审查前的内容快照，保留上一次回复的内容，方便玩家重新构思行为和选项
+   */
+  const rollbackReview = async (): Promise<void> => {
+    console.log('[useAIInteraction] 用户回退审查，取消本次AI回复');
+    isReviewProcessing.value = true;
+
+    try {
+      // 关闭审查对话框
+      showReviewDialog.value = false;
+
+      // 【关键修复】恢复审查前的内容快照
+      // 这样玩家可以看到之前的回复内容（内容1），而不是被清空或显示新内容（内容2）
+      if (preReviewContentSnapshot.value) {
+        console.log('[useAIInteraction] 恢复审查前的内容快照');
+        currentContent.value = preReviewContentSnapshot.value.currentContent;
+        swipes.value = [...preReviewContentSnapshot.value.swipes];
+        currentSwipeIndex.value = preReviewContentSnapshot.value.currentSwipeIndex;
+        // 保持 lastAIResponse 为快照中的值（即审查前的值）
+        // 这样下次发送消息时，上下文注入的是正确的上一次回复
+        lastAIResponse.value = preReviewContentSnapshot.value.lastAIResponse;
+        console.log('[useAIInteraction] 已恢复内容，长度:', currentContent.value.length);
+      } else {
+        // 如果没有快照（理论上不应该发生），尝试从酒馆恢复
+        console.warn('[useAIInteraction] 没有审查前快照，尝试从酒馆恢复...');
+        const restored = await loadLatestFromTavern();
+        if (!restored && lastAIResponse.value) {
+          // 最后的回退方案：从 lastAIResponse 提取内容
+          const previousContent = extractGameText(lastAIResponse.value);
+          if (previousContent) {
+            currentContent.value = previousContent;
+            swipes.value = [previousContent];
+            currentSwipeIndex.value = 0;
+            console.log('[useAIInteraction] 已从 lastAIResponse 恢复内容');
+          }
+        }
+      }
+
+      // 清理待处理的缓存和快照
+      pendingAIResponse.value = null;
+      pendingGenerationId.value = null;
+      currentReviewResult.value = null;
+      preReviewContentSnapshot.value = null;
+
+      // 尝试清理酒馆中可能已创建的消息
+      await cleanupExtraMessages();
+
+      // 显示提示
+      if (typeof toastr !== 'undefined') {
+        toastr.info('已回退本次AI回复，保留上一次内容', '审查回退', { timeOut: 2000 });
+      }
+
+      console.log('[useAIInteraction] 审查回退完成，已保留上一次内容');
+    } catch (err) {
+      console.error('[useAIInteraction] 审查回退失败:', err);
+    } finally {
+      isReviewProcessing.value = false;
+      isProcessing.value = false;
+      isStreaming.value = false;
+    }
+  };
+
+  /**
+   * 切换审查模式
+   */
+  const toggleReviewMode = (): boolean => {
+    reviewModeEnabled.value = !reviewModeEnabled.value;
+    console.log('[useAIInteraction] 审查模式:', reviewModeEnabled.value ? '启用' : '禁用');
+
+    if (typeof toastr !== 'undefined') {
+      toastr.info(reviewModeEnabled.value ? '审查模式已启用' : '审查模式已禁用', '设置', { timeOut: 2000 });
+    }
+
+    return reviewModeEnabled.value;
+  };
+
+  /**
+   * 设置审查模式
+   */
+  const setReviewMode = (enabled: boolean): void => {
+    reviewModeEnabled.value = enabled;
+    console.log('[useAIInteraction] 审查模式设置为:', enabled ? '启用' : '禁用');
   };
 
   // ========== 变量更新处理 ==========
@@ -1622,6 +1823,17 @@ ${lastAIResponse.value}
     // AI内容数据管理
     getAIContentData,
     restoreAIContentData,
+
+    // AI响应审查功能
+    reviewModeEnabled,
+    showReviewDialog,
+    currentReviewResult,
+    isReviewProcessing,
+    confirmReview,
+    rollbackReview,
+    toggleReviewMode,
+    setReviewMode,
+    aiResponseReviewService,
 
     // MVU拦截器管理（已禁用，保留接口兼容性）
     isMvuInterceptorEnabled,

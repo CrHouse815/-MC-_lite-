@@ -1,0 +1,697 @@
+
+<status_current_variables>
+{{get_message_variable::stat_data}}
+</status_current_variables>
+
+<变量更新规则>
+严格按照以下规则和格式进行输出，并确定哪个变量是否需要更新，禁止额外添加标签，严格按照以下格式输出：
+rule:
+  description:
+    - You should output the update analysis in the end of the next response, following the variables list defined in <status_current_variables> section which will be provided by the previous turn.
+    - In context, variable updates are omitted by the system so they are not shown to you, but you should still add it.
+    - There are 4 commands can be used to adjust the data: `_.set`, `_.assign`, `_.remove` and `_.add`.
+    - to set a certain value, use `_.set`, it supports 2 or 3 input args.
+    - to insert something into an array or object, use `_.assign`, it supports 2 or 3 input args.
+    - to delete something from an object/array, use `_.remove`, it supports 1 or 2 input args.
+    - If you need to assign or remove multiple values, use `_.assign` or `_.remove` multiple times, not in a single command.
+    - to add a delta to a number, use `_.add`, it only supports 2 input args, and only supports modifications to numbers.
+    - It is allowed to use math expressions for number inputs.
+  analysis:
+    - You must rethink what variables are defined in the previous `<status_current_variables>` property, and analyze how to update each of them accordingly.
+    - 数据结构与路径规则:
+        - 花名册条目: v3版本条目直接在花名册下，路径格式为 `MC.花名册.条目ID.字段名`（无entries层）
+        - 文档节点: 路径格式为 `MC.文档.文档名.sections.节点ID.属性名`
+        - 子节点: 路径格式为 `MC.文档.文档名.sections.节点ID.children.子节点ID.属性名`
+        - 申请记录: 路径格式为 `MC.申请记录.类别.申请编号`
+    - 操作规则:
+        - 创建: 使用 `_.assign('父路径', '条目名称', {属性对象})` 来添加新条目
+        - 修改: 使用 `_.set` 或 `_.add` 等命令，路径需精确到具体属性
+        - 先创建后修改: 必须先使用 `_.assign` 完整创建条目，才能对该条目的内部属性进行修改。严禁在不存在的条目上执行修改操作
+        - 键名禁止包含点号: 点号(.)是路径分隔符，键名中不能包含点号。如 `No.001` 错误，应使用 `No001`
+    - 使用简体中文作为//批注的输出
+    - 非必要不使用remove删除内容
+
+ ## **你只能使用_.set、_.add、_.assign、_.remove这四个指令，禁止使用_.get等未要求的指令格式**
+
+<花名册修改准则>
+# 新角色人物添加（极为重要）：
+## 以下内容必须分步使用规定的指令进行添加，禁止遗漏
+  - 1.检查花名册的$schemaRef引用的规章制度，了解需要填写哪些字段
+  - 2.使用 `_.assign('MC.花名册', '条目ID', {完整属性对象})` 一次性创建完整条目
+  - 3.后续修改单个字段使用 `_.set('MC.花名册.条目ID.字段名', 旧值, 新值)`
+  - 4.为已存在条目添加新字段时，必须用 `_.assign('MC.花名册', '条目ID', {所有原字段+新字段})` 覆盖整个条目
+</花名册修改准则>
+
+  format: |-
+    <UpdateVariable>
+        //${reason}
+        _.set('${path}', ${old}?, ${new});
+        //${reason}
+        _.assign('${path}', ${key_or_index}?, ${value});
+        //${reason}
+        _.remove('${path}', ${key_or_index_or_value}?);
+        //${reason}
+        _.add('${path}', ${delta});
+    </UpdateVariable>
+
+  example: |-
+    <UpdateVariable>
+        //时间推进2小时
+        _.set('MC.系统.当前时间.时间', '09:30', '11:30');
+        //地点转移到会议室
+        _.set('MC.系统.当前地点', '综合管理科办公室', '大会议室');
+        //玩家职位晋升
+        _.set('MC.玩家.职位', '科员', '主任科员');
+        //创建新角色（v3版本直接在花名册下，无entries层）
+        _.assign('MC.花名册', 'No004', { "$meta": { "extensible": true }, "id": "No004", "name": "AAA", "gender": "女", "age": 22, "department": "技术支援科", "position": "技术员", "rank": "科员", "yearsOfService": 1, "height": "165cm", "weight": "50kg", "measurements": "88-58-88 (cm)", "bustRating": "C级（G杯）", "faceScore": 86, "personality": ["活泼", "好奇心强"], "rating": "B级", "notes": "" });
+        //更新已存在人员的单个字段
+        _.set('MC.花名册.No001.notes', '行动一科负责人。', '行动一科负责人，今日主持了部门会议。');
+        //为已存在人员添加新字段（必须覆盖整个条目）
+        _.assign('MC.花名册', 'No001', { "$meta": { "extensible": true }, "id": "No001", "name": "XXX", "gender": "女", "age": 27, "department": "行动一科", "position": "科长", "rank": "管理层", "yearsOfService": 5, "height": "172cm", "weight": "58kg", "measurements": "98-60-96 (cm)", "bustRating": "A级（I杯）", "faceScore": 92, "personality": ["严厉", "一丝不苟"], "rating": "S级", "notes": "行动一科负责人，今日主持了部门会议。", "specialSkill": "格斗技巧" });
+        //添加新文档
+        _.assign('MC.文档', '培训手册', { "title": "培训手册", "description": "新员工培训指南", "order": 3, "sections": { "$meta": { "extensible": true } } });
+        //为文档添加章节
+        _.assign('MC.文档.培训手册.sections', '第一章', { "title": "第一章 入职须知", "content": "欢迎加入本处...", "order": 1, "children": { "$meta": { "extensible": true } } });
+        //添加申请记录
+        _.assign('MC.申请记录.物资申请', 'APP20240316001', '【物资领用申请】申请人：<user>（行动一科）| 日期：2024-03-16 | 类别：电子设备 | 物资：U盘×2个 | 理由：数据传输需要 | 状态：待审批');
+    </UpdateVariable>
+</变量更新规则>
+
+
+<description>
+# 变量结构总览
+
+MClite 使用嵌套的 JSON 对象结构存储所有游戏数据。所有变量存储在 `MC` 根对象下，包含以下主要分支：
+- `MC.系统`: 游戏系统状态（时间、地点等）
+- `MC.玩家`: 玩家角色信息
+- `MC.文档`: 规章制度与定义文档（包含花名册Schema、表单定义）
+- `MC.花名册`: 人员档案数据
+- `MC.申请记录`: 表单提交的申请记录
+
+---
+
+# 一、系统变量
+路径: `MC.系统`
+
+| 字段 | 类型 | 说明 | 示例 |
+|------|------|------|------|
+| 当前地点 | string | 当前场景位置 | "第七处·综合管理科办公室" |
+| 当前时间.日期 | string | 日期，格式"YYYY年M月D日" | "2024年3月15日" |
+| 当前时间.时间 | string | 24小时制时间"HH:MM" | "09:30" |
+
+**示例结构:**
+```json
+{
+  "当前地点": "第七处·综合管理科办公室",
+  "当前时间": {
+    "日期": "2024年3月15日",
+    "时间": "09:30"
+  }
+}
+```
+
+---
+
+# 二、玩家变量
+路径: `MC.玩家`
+
+| 字段 | 类型 | 说明 | 示例 |
+|------|------|------|------|
+| 姓名 | string | 玩家角色姓名（使用<user>代指） | "<user>" |
+| 年龄 | number | 玩家角色年龄 | 21 |
+| 职位 | string | 职位名称 | "科员" |
+| 部门 | string | 所属部门 | "行动一科" |
+
+**示例结构:**
+```json
+{
+  "姓名": "<user>",
+  "年龄": 21,
+  "职位": "科员",
+  "部门": "行动一科"
+}
+```
+
+---
+
+# 三、文档（规章制度与定义）
+路径: `MC.文档`
+
+文档容器用于存储：
+1. **纯文本规章制度**（如员工守则）- 提供叙事内容
+2. **花名册Schema定义文档**（如人事档案管理规定）- 定义花名册字段结构
+3. **表单定义文档**（如物资申请管理办法）- 定义表单字段和工作流
+
+## 3.1 文档基础结构
+
+```json
+{
+  "文档名称": {
+    "title": "文档标题",
+    "description": "文档描述",
+    "order": 1,
+    "$rosterMeta": { ... },  // 可选：花名册元数据
+    "$formMeta": { ... },    // 可选：表单元数据
+    "sections": {
+      "$meta": { "extensible": true },
+      "第一章": {
+        "title": "第一章 总则",
+        "content": "章节内容...",
+        "order": 1,
+        "$groupDef": { ... },  // 可选：花名册分组定义
+        "children": {
+          "$meta": { "extensible": true },
+          "第一条": {
+            "title": "第一条",
+            "content": "条款内容...",
+            "order": 1,
+            "$fieldDef": { ... }  // 可选：字段定义
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## 3.2 花名册Schema定义（$rosterMeta + $groupDef + $fieldDef）
+
+### 3.2.1 $rosterMeta - 花名册元数据
+**位置**: 文档根级别
+**用途**: 声明该文档定义了一个花名册的Schema
+
+```json
+"$rosterMeta": {
+  "rosterId": "花名册",           // 花名册唯一标识
+  "targetPath": "MC.花名册",      // 花名册数据存储路径
+  "primaryKey": "id",             // 主键字段名
+  "displayField": "name",         // 列表显示字段名
+  "groupByField": "department"    // 分组字段名（可选）
+}
+```
+
+### 3.2.2 $groupDef - 分组定义
+**位置**: 章节(sections)级别
+**用途**: 定义花名册详情页的字段分组
+
+```json
+"$groupDef": {
+  "belongsTo": "花名册",    // 归属的花名册ID
+  "groupId": "basic",       // 分组唯一标识
+  "label": "基本信息",      // 分组显示名称
+  "order": 1,               // 分组排序
+  "collapsed": false        // 是否默认折叠
+}
+```
+
+### 3.2.3 $fieldDef - 花名册字段定义
+**位置**: 条款(children)级别
+**用途**: 定义花名册的具体字段
+
+**单个字段定义:**
+```json
+"$fieldDef": {
+  "belongsTo": "花名册",      // 归属的花名册ID
+  "fieldId": "id",            // 字段唯一标识
+  "label": "员工编号",        // 字段显示名称
+  "type": "string",           // 字段类型
+  "description": "唯一标识符，格式为NoXXX",
+  "showInList": true,         // 是否在列表视图显示
+  "showInSummary": true,      // 是否在摘要卡片显示
+  "order": 0,                 // 字段排序
+  "options": ["选项1", "选项2"],  // enum类型的可选值
+  "default": "默认值"         // 字段默认值
+}
+```
+
+**多个字段定义（数组形式）:**
+```json
+"$fieldDef": [
+  { "belongsTo": "花名册", "fieldId": "department", "label": "所属部门", "type": "string", "showInList": true, "order": 4 },
+  { "belongsTo": "花名册", "fieldId": "position", "label": "职务", "type": "string", "showInList": true, "order": 5 }
+]
+```
+
+### 3.2.4 花名册字段类型
+
+| type值 | 说明 | 示例值 |
+|--------|------|--------|
+| string | 单行文本 | "XXX", "No001" |
+| number | 数字 | 27, 5 |
+| text | 多行文本 | "详细描述..." |
+| enum | 枚举选择（需配合options） | "管理层", "S级" |
+| tags | 标签数组 | ["严厉", "一丝不苟"] |
+| boolean | 布尔值 | true, false |
+
+## 3.3 表单定义（$formMeta + $fieldDef）
+
+### 3.3.1 $formMeta - 表单元数据
+**位置**: 文档根级别
+**用途**: 声明该文档定义了一个可填写的表单
+
+```json
+"$formMeta": {
+  "formId": "物资申请表",              // 表单唯一标识
+  "formName": "物资领用申请表",        // 表单显示名称
+  "description": "用于申请领用办公物资、装备等",
+  "targetPath": "MC.申请记录.物资申请", // 申请记录存储路径
+  "workflow": [                         // 可选：审批流程
+    { "step": 1, "name": "填写申请", "handler": "申请人" },
+    { "step": 2, "name": "直属上级审批", "handler": "直属上级", "canReject": true },
+    { "step": 3, "name": "综合管理科审核", "handler": "综合管理科", "canReject": true },
+    { "step": 4, "name": "物资发放", "handler": "后勤组" }
+  ],
+  "validDays": 30                       // 可选：有效期天数
+}
+```
+
+### 3.3.2 $fieldDef - 表单字段定义
+**位置**: 条款(sections或children)级别
+**用途**: 定义表单的具体输入字段
+
+```json
+"$fieldDef": {
+  "belongsTo": "物资申请表",     // 归属的表单ID
+  "fieldId": "item_category",    // 字段唯一标识
+  "label": "物资类别",           // 字段显示标签
+  "formPosition": 4,             // 在表单中的排序位置
+  "inputType": "select",         // 控件类型
+  "required": true,              // 是否必填
+  "options": [                   // select/radio的选项
+    { "value": "office", "label": "办公用品" },
+    { "value": "electronic", "label": "电子设备" }
+  ],
+  "placeholder": "请选择...",    // 占位提示
+  "helpText": "帮助说明文字"     // 帮助文本
+}
+```
+
+### 3.3.3 表单字段类型（inputType）
+
+| inputType | 说明 | 特殊属性 |
+|-----------|------|----------|
+| text | 单行文本输入 | maxLength |
+| textarea | 多行文本输入 | minLength, maxLength |
+| number | 数字输入 | min, max |
+| date | 日期选择 | - |
+| datetime | 日期时间选择 | - |
+| select | 下拉选择 | options, sourceType, sourcePath |
+| radio | 单选按钮 | options |
+| checkbox | 复选框 | checkboxLabel, mustBeTrue |
+| readonly | 只读显示 | source |
+| table | 动态表格 | columns, minRows, maxRows |
+
+### 3.3.4 表单字段完整属性列表
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| belongsTo | string | 归属的表单ID |
+| fieldId | string | 字段唯一标识 |
+| label | string | 显示标签 |
+| formPosition | number | 表单中的排序位置 |
+| inputType | string | 控件类型 |
+| required | boolean | 是否必填 |
+| defaultValue | any | 默认值（支持模板变量如{{currentDate}}） |
+| source | string | 数据来源路径（readonly类型） |
+| sourceType | 'roster'\|'variable' | 数据源类型 |
+| sourcePath | string | 数据源路径（用于动态选项） |
+| displayField | string | 显示字段名（用于花名册选择） |
+| options | array | 选项列表 |
+| placeholder | string | 占位提示 |
+| helpText | string | 帮助文本 |
+| minLength | number | 最小长度 |
+| maxLength | number | 最大长度 |
+| min | number | 最小值 |
+| max | number | 最大值 |
+| columns | array | 表格列定义（table类型） |
+| minRows | number | 最小行数（table类型） |
+| maxRows | number | 最大行数（table类型） |
+| checkboxLabel | string | 复选框标签文本 |
+| mustBeTrue | boolean | 是否必须勾选 |
+| showWhen | object | 条件显示规则 |
+| conditionalRequired | object | 条件必填规则 |
+
+### 3.3.5 条件规则示例
+
+**条件显示 (showWhen):**
+```json
+"showWhen": {
+  "field": "item_category",
+  "equals": "special"
+}
+```
+
+**条件必填 (conditionalRequired):**
+```json
+"conditionalRequired": {
+  "when": { "field": "item_category", "in": ["special", "equipment"] },
+  "required": true,
+  "minLength": 50
+}
+```
+
+---
+
+# 四、花名册（v3扁平结构）
+路径: `MC.花名册`
+
+## 4.1 结构特点
+- **条目直接在花名册下，无entries层**（这是v3版本的关键特征）
+- Schema通过 `$schemaRef` 引用规章制度
+- 每个条目使用 `$meta: { extensible: true }` 标记可扩展
+
+## 4.2 完整结构示例
+
+```json
+{
+  "$meta": { "extensible": true },
+  "$schemaRef": "MC.文档.人事档案管理规定",
+  "No001": {
+    "$meta": { "extensible": true },
+    "id": "No001",
+    "name": "XXX",
+    "gender": "女",
+    "age": 27,
+    "department": "行动一科",
+    "position": "科长",
+    "rank": "管理层",
+    "yearsOfService": 5,
+    "height": "172cm",
+    "weight": "58kg",
+    "measurements": "98-60-96 (cm)",
+    "bustRating": "A级（I杯）",
+    "faceScore": 92,
+    "personality": ["严厉", "一丝不苟", "程序至上"],
+    "rating": "S级",
+    "notes": "行动一科负责人，业务能力出众。"
+  },
+  "No002": {
+    "$meta": { "extensible": true },
+    "id": "No002",
+    "name": "YYY",
+    ...
+  }
+}
+```
+
+## 4.3 人事档案管理规定中定义的标准字段
+
+| 字段ID | 类型 | 说明 | 分组 |
+|--------|------|------|------|
+| id | string | 员工编号（NoXXX格式） | 基本信息 |
+| name | string | 姓名 | 基本信息 |
+| gender | enum | 性别（女/男） | 基本信息 |
+| age | number | 年龄（18-28周岁） | 基本信息 |
+| department | string | 所属部门 | 基本信息 |
+| position | string | 职务 | 基本信息 |
+| rank | enum | 职级（管理层/主任科员/科员/实习生） | 基本信息 |
+| yearsOfService | number | 入职年限 | 基本信息 |
+| height | string | 身高（如172cm） | 体态评估 |
+| weight | string | 体重（如58kg） | 体态评估 |
+| measurements | string | 三围（如98-60-96 cm） | 体态评估 |
+| bustRating | string | 胸部评级（七标体系） | 体态评估 |
+| faceScore | number | 面容评分（百分制） | 体态评估 |
+| personality | tags | 性格特征标签数组 | 综合评估 |
+| rating | enum | 综合评级（S/A/B/C级） | 综合评估 |
+| notes | text | 备注信息 | 综合评估 |
+
+## 4.4 重要规则
+
+1. **键名禁止包含点号**: 点号(.)是路径分隔符，`No.001`错误，应使用`No001`
+2. **创建完整条目**: 添加新人员时必须使用 `_.assign` 一次性创建完整条目
+3. **必须包含$meta**: 每个条目应包含 `"$meta": { "extensible": true }` 以支持动态扩展
+4. **字段参照Schema**: 字段应参照 `$schemaRef` 引用的规章制度中定义的字段
+
+---
+
+# 五、申请记录
+路径: `MC.申请记录`
+
+## 5.1 结构特点
+- 申请记录按表单类型分类存储
+- 使用 `$formRef` 引用表单定义文档
+- 申请记录以**摘要文本形式**存储，便于AI阅读理解
+- 键名格式：`APP` + 日期(YYYYMMDD) + 三位序号（如 `APP20240315001`）
+
+## 5.2 完整结构示例
+
+```json
+{
+  "$meta": { "extensible": true },
+  "物资申请": {
+    "$meta": { "extensible": true },
+    "$formRef": "MC.文档.物资申请管理办法",
+    "APP20240315001": "【物资领用申请】申请人：<user>（行动一科）| 日期：2024-03-15 | 类别：办公用品 | 物资：签字笔×5盒 | 理由：日常办公使用 | 状态：审批中（待XXX审批）"
+  },
+  "个人需求": {
+    "$meta": { "extensible": true },
+    "$formRef": "MC.文档.个人需求申请管理办法",
+    "APP20240312001": "【个人需求申请】申请人：<user>（行动一科）| 日期：2024-03-12 | 事项：申请与YYY进行午休时间的亲密接触 | 涉及人员：YYY | 理由：增进同事感情 | 状态：已批准（XXX批准，YYY已确认配合）"
+  }
+}
+```
+
+## 5.3 申请记录摘要格式
+
+摘要文本格式：`【表单名称】申请人：xxx（部门）| 字段1：值1 | 字段2：值2 | ... | 状态：xxx`
+
+**状态值说明:**
+| 状态 | 说明 |
+|------|------|
+| 待审批 | 刚提交，等待第一个审批人处理 |
+| 审批中（待xxx审批） | 正在审批流程中，指明当前审批人 |
+| 已批准 | 审批通过 |
+| 已批准（快速通过） | 通过快速通过功能直接批准 |
+| 已拒绝（xxx驳回） | 被某人驳回，附带驳回人信息 |
+
+---
+
+# 六、可扩展性机制
+
+## 6.1 $meta.extensible
+所有带有 `"$meta": { "extensible": true }` 的对象都支持动态添加新键值对。
+- 根对象、花名册、申请记录、文档sections等都应标记为可扩展
+- 便于AI在需要时添加新的字段或条目
+
+## 6.2 $schemaRef 和 $formRef
+| 引用类型 | 用途 | 示例 |
+|----------|------|------|
+| $schemaRef | 花名册引用规章制度作为Schema来源 | "MC.文档.人事档案管理规定" |
+| $formRef | 申请记录引用管理办法作为表单定义来源 | "MC.文档.物资申请管理办法" |
+
+---
+
+# 七、前端面板期望的变量结构汇总
+
+## 7.1 人事系统面板 (RosterPanel)
+
+**读取路径:**
+- 花名册数据: `MC.花名册`
+- Schema定义: `MC.花名册.$schemaRef` → `MC.文档.{文档名}`
+
+**期望的花名册条目字段:**
+```json
+{
+  "$meta": { "extensible": true },
+  "id": "NoXXX",
+  "name": "姓名",
+  "gender": "女|男",
+  "age": 数字,
+  "department": "部门名",
+  "position": "职务",
+  "rank": "管理层|主任科员|科员|实习生",
+  "yearsOfService": 数字,
+  "height": "xxxcm",
+  "weight": "xxkg",
+  "measurements": "xx-xx-xx (cm)",
+  "bustRating": "等级（杯型）",
+  "faceScore": 数字(0-100),
+  "personality": ["标签1", "标签2"],
+  "rating": "S|A|B|C级",
+  "notes": "备注文本"
+}
+```
+
+**显示规则:**
+- 列表视图显示: id, name, age, department, position, rank, rating
+- 摘要卡片显示: name, rank, personality, rating
+- 分组依据: department
+- 主键: id
+- 显示字段: name
+
+## 7.2 文档查看面板
+
+**读取路径:** `MC.文档`
+
+**期望的文档结构:**
+```json
+{
+  "文档名": {
+    "title": "文档标题",
+    "description": "描述",
+    "order": 排序数字,
+    "sections": {
+      "$meta": { "extensible": true },
+      "章节ID": {
+        "title": "章节标题",
+        "content": "章节内容",
+        "order": 排序数字,
+        "children": {
+          "$meta": { "extensible": true },
+          "条款ID": {
+            "title": "条款标题",
+            "content": "条款内容",
+            "order": 排序数字
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## 7.3 表单申请面板 (FormPanel)
+
+**读取路径:**
+- 表单定义: 从 `MC.文档` 中解析带有 `$formMeta` 的文档
+- 申请记录: `MC.申请记录.{类别}`
+- 花名册数据（用于选择器）: `MC.花名册`
+
+**期望的表单定义结构（在文档中）:**
+```json
+{
+  "title": "管理办法标题",
+  "description": "描述",
+  "$formMeta": {
+    "formId": "表单ID",
+    "formName": "表单显示名称",
+    "description": "表单描述",
+    "targetPath": "MC.申请记录.类别名",
+    "workflow": [...],
+    "validDays": 30
+  },
+  "sections": {
+    "条款ID": {
+      "title": "条款标题",
+      "content": "条款内容说明",
+      "$fieldDef": {
+        "belongsTo": "表单ID",
+        "fieldId": "字段ID",
+        "label": "字段标签",
+        "formPosition": 位置数字,
+        "inputType": "text|textarea|select|...",
+        "required": true|false,
+        ...其他属性
+      }
+    }
+  }
+}
+```
+
+**表单字段从变量读取的情况:**
+- `source: "MC.玩家.姓名"` → 自动填充玩家姓名
+- `source: "MC.玩家.部门"` → 自动填充玩家部门
+- `sourceType: "roster"` + `sourcePath: "MC.花名册"` → 从花名册加载选项
+
+**申请记录存储格式:**
+提交后存储为摘要文本字符串，路径为 `MC.申请记录.{类别}.{申请编号}`
+
+---
+
+# 八、变量操作指令速查表
+
+## 8.1 基础操作
+
+| 操作 | 指令 | 示例 |
+|------|------|------|
+| 设置值 | _.set(path, old?, new) | `_.set('MC.玩家.职位', '科员', '主任科员')` |
+| 数值增减 | _.add(path, delta) | `_.add('MC.玩家.年龄', 1)` |
+| 添加/创建 | _.assign(path, key, value) | `_.assign('MC.花名册', 'No003', {...})` |
+| 删除 | _.remove(path, key?) | `_.remove('MC.申请记录.物资申请.APP001')` |
+
+## 8.2 常见场景操作示例
+
+**1. 时间推进:**
+```javascript
+_.set('MC.系统.当前时间.时间', '09:30', '11:30');
+```
+
+**2. 地点转移:**
+```javascript
+_.set('MC.系统.当前地点', '办公室', '会议室');
+```
+
+**3. 添加新人员（完整）:**
+```javascript
+_.assign('MC.花名册', 'No003', {
+  "$meta": { "extensible": true },
+  "id": "No003",
+  "name": "新人姓名",
+  "gender": "女",
+  "age": 22,
+  "department": "部门",
+  "position": "职位",
+  "rank": "科员",
+  "yearsOfService": 1,
+  "height": "165cm",
+  "weight": "50kg",
+  "measurements": "90-58-88 (cm)",
+  "bustRating": "C级（G杯）",
+  "faceScore": 85,
+  "personality": ["性格1", "性格2"],
+  "rating": "B级",
+  "notes": ""
+});
+```
+
+**4. 修改人员单个字段:**
+```javascript
+_.set('MC.花名册.No001.notes', '旧备注', '新备注');
+```
+
+**5. 添加申请记录:**
+```javascript
+_.assign('MC.申请记录.物资申请', 'APP20240316001',
+  '【物资领用申请】申请人：<user>（行动一科）| 日期：2024-03-16 | 类别：办公用品 | 物资：订书机×1个 | 理由：办公使用 | 状态：待审批');
+```
+
+**6. 更新申请状态:**
+```javascript
+_.set('MC.申请记录.物资申请.APP20240316001',
+  '...状态：待审批',
+  '...状态：已批准（XXX审批通过）');
+```
+
+**7. 添加新文档:**
+```javascript
+_.assign('MC.文档', '新文档名', {
+  "title": "文档标题",
+  "description": "文档描述",
+  "order": 10,
+  "sections": { "$meta": { "extensible": true } }
+});
+```
+
+**8. 为文档添加章节:**
+```javascript
+_.assign('MC.文档.新文档名.sections', '第一章', {
+  "title": "第一章 标题",
+  "content": "章节内容...",
+  "order": 1,
+  "children": { "$meta": { "extensible": true } }
+});
+```
+
+---
+
+# 九、注意事项与最佳实践
+
+1. **路径准确性**: 确保路径完全正确，使用点号分隔各层级
+2. **键名规范**: 键名不能包含点号，建议使用驼峰或下划线命名
+3. **完整创建**: 创建新条目时务必包含所有必要字段
+4. **$meta标记**: 新建的可扩展对象要加入 `$meta: { extensible: true }`
+5. **类型一致**: 注意字段类型，number用数字，string用引号
+6. **中文批注**: 使用 `//中文说明` 解释每个操作的目的
+7. **顺序操作**: 必须先创建条目，才能修改其内部字段
+
+</description>

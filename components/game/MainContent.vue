@@ -4,11 +4,15 @@
   参考归墟模式：只显示当前AI回复内容，而非聊天列表
   集成内容块差异化显示系统
   集成变量变化面板 - 显示AI回复后的变量更新
+  集成自定义开局面板 - 当内容为空时显示开局设定界面
 -->
 <template>
   <main class="main-content">
-    <!-- 游戏文本显示区域 -->
-    <div class="game-text-container">
+    <!-- 自定义开局面板 - 当内容为空时显示 -->
+    <GameStartPanel v-if="showGameStartPanel" @start="handleGameStart" @cancel="handleGameStartCancel" />
+
+    <!-- 游戏文本显示区域 - 有内容时显示 -->
+    <div v-else class="game-text-container">
       <!-- AI正在思考状态 -->
       <div v-if="isProcessing && !isStreaming" class="processing-state">
         <div class="thinking-panel">
@@ -22,22 +26,22 @@
       </div>
 
       <!-- 主内容显示 -->
-      <div v-else class="content-display" ref="contentRef">
+      <div v-else ref="contentRef" class="content-display">
         <!-- 内容头部 -->
         <div class="content-header">
           <div class="content-meta">
-            <span class="meta-item" v-if="lastUpdateTime">
+            <span v-if="lastUpdateTime" class="meta-item">
               <span class="meta-icon">🕐</span>
               {{ lastUpdateTime }}
             </span>
-            <span class="meta-item streaming-badge" v-if="isStreaming">
+            <span v-if="isStreaming" class="meta-item streaming-badge">
               <span class="streaming-dot"></span>
               正在生成...
             </span>
           </div>
           <!-- 版本徽章 -->
-          <div class="version-badge" title="MClite v0.5.5">
-            <span class="version-tag">MClite v0.5.5</span>
+          <div class="version-badge" title="MClite v0.7.4">
+            <span class="version-tag">MClite v0.7.4</span>
           </div>
         </div>
 
@@ -70,6 +74,7 @@
 import { ref, watch, nextTick, computed } from 'vue';
 import ContentBlockRenderer from '../common/ContentBlockRenderer.vue';
 import VariableChangesPanel from '../common/VariableChangesPanel.vue';
+import GameStartPanel from './GameStartPanel.vue';
 import type { ContentBlockEvent, ParseResult, RendererConfig } from '../../types/contentBlock';
 
 // ============ Types ============
@@ -104,6 +109,12 @@ const props = withDefaults(defineProps<Props>(), {
   lastUpdateTime: '',
 });
 
+// ============ Emits ============
+const emit = defineEmits<{
+  /** 开始游戏，发送开局提示词 */
+  (e: 'game-start', prompt: string): void;
+}>();
+
 // ============ Refs ============
 const contentRef = ref<HTMLElement | null>(null);
 const variableChangesPanelRef = ref<InstanceType<typeof VariableChangesPanel> | null>(null);
@@ -112,6 +123,14 @@ const variableChangesPanelRef = ref<InstanceType<typeof VariableChangesPanel> | 
 
 /** 是否应该自动展开变量变化面板（有变化时自动展开） */
 const shouldAutoExpandChanges = computed(() => props.variableChanges.length > 0);
+
+/** 是否显示开局面板（当内容为空且不在处理中时） */
+const showGameStartPanel = computed(() => {
+  // 如果正在处理或流式传输，不显示开局面板
+  if (props.isProcessing || props.isStreaming) return false;
+  // 如果内容为空，显示开局面板
+  return !props.currentContent || props.currentContent.trim() === '';
+});
 
 // ============ 内容块渲染配置 ============
 
@@ -170,6 +189,21 @@ const handleClearChanges = (): void => {
  */
 const handleCopyChanges = (content: string): void => {
   console.log('[MainContent] 复制变量变化记录:', content.substring(0, 100));
+};
+
+/**
+ * 处理开始游戏
+ */
+const handleGameStart = (prompt: string): void => {
+  console.log('[MainContent] 开始游戏，提示词长度:', prompt.length);
+  emit('game-start', prompt);
+};
+
+/**
+ * 处理取消开局
+ */
+const handleGameStartCancel = (): void => {
+  console.log('[MainContent] 取消开局');
 };
 
 // ============ 监听 ============

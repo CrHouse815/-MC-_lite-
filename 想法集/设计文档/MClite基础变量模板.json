@@ -1,11 +1,12 @@
 {
   "$meta": {
     "extensible": true,
-    "version": "2.1",
-    "description": "MClite 基础变量模板 - 可扩展架构"
+    "version": "3.0",
+    "description": "MClite 基础变量模板 - 重构后的可扩展架构"
   },
   "MC": {
     "$meta": { "extensible": true },
+
     "系统": {
       "$meta": { "extensible": true },
       "当前地点": "",
@@ -14,6 +15,7 @@
         "时间": ""
       }
     },
+
     "玩家": {
       "$meta": { "extensible": true },
       "姓名": "",
@@ -21,76 +23,26 @@
       "职位": "",
       "部门": ""
     },
-    "花名册": {
-      "$meta": {
-        "extensible": true,
-        "version": "2.0",
-        "description": "Schema-Driven 可扩展花名册"
-      },
-      "$schema": {
-        "$meta": { "extensible": true },
-        "primaryKey": "",
-        "displayField": "",
-        "groupByField": "",
-        "fields": {
-          "$meta": {
-            "extensible": true,
-            "template": {
-              "label": "",
-              "type": "string",
-              "description": "",
-              "showInList": false,
-              "showInSummary": false,
-              "order": 0,
-              "options": [],
-              "default": null
-            }
-          }
-        },
-        "groups": {
-          "$meta": {
-            "extensible": true,
-            "template": {
-              "label": "",
-              "order": 0,
-              "collapsed": false,
-              "fields": []
-            }
-          }
-        }
-      },
-      "entries": {
-        "$meta": {
-          "extensible": true,
-          "template": {
-            "$meta": { "extensible": true }
-          }
-        }
-      }
-    },
+
     "文档": {
       "$meta": {
         "extensible": true,
-        "version": "2.0",
-        "description": "多文档管理容器 - 支持多份文档并行存在",
-        "template": {
-          "title": "",
-          "description": "",
-          "order": 0,
-          "sections": {
-            "$meta": {
-              "extensible": true,
-              "template": {
-                "title": "",
-                "content": "",
-                "order": 0,
-                "children": {
-                  "$meta": { "extensible": true }
-                }
-              }
-            }
-          }
-        }
+        "description": "多文档管理容器 - 规章制度与字段定义内嵌"
+      }
+    },
+
+    "花名册": {
+      "$meta": {
+        "extensible": true,
+        "description": "Schema-Driven 花名册，schema从文档中的$rosterMeta和$fieldDef解析"
+      },
+      "$schemaRef": ""
+    },
+
+    "申请记录": {
+      "$meta": {
+        "extensible": true,
+        "description": "表单申请记录容器"
       }
     }
   }

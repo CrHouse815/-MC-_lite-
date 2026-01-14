@@ -6,12 +6,12 @@
 <template>
   <aside class="sidebar" :class="{ 'is-collapsed': isCollapsed, 'is-visible': mobileVisible }">
     <!-- 移动端关闭按钮 -->
-    <button class="mobile-close-btn" @click="$emit('close-mobile')" title="关闭菜单">
+    <button class="mobile-close-btn" title="关闭菜单" @click="$emit('close-mobile')">
       <span class="close-icon">✕</span>
     </button>
 
     <!-- 折叠按钮（仅桌面端显示） -->
-    <button class="collapse-btn" @click="toggleCollapse" :title="isCollapsed ? '展开菜单' : '收起菜单'">
+    <button class="collapse-btn" :title="isCollapsed ? '展开菜单' : '收起菜单'" @click="toggleCollapse">
       <span class="collapse-icon">{{ isCollapsed ? '◀' : '▶' }}</span>
     </button>
 
@@ -201,6 +201,11 @@ const menuItems = computed<MenuItem[]>(() => [
     id: 'handbook',
     icon: '📖',
     label: '文档查看',
+  },
+  {
+    id: 'forms',
+    icon: '📝',
+    label: '表单申请',
   },
 ]);
 
