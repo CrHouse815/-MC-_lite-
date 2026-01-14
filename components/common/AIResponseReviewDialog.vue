@@ -338,7 +338,8 @@ watch(
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   animation: dialog-enter 0.25s ease-out;
 
   &.has-errors {
@@ -732,19 +733,31 @@ watch(
 
 // ============ 响应式 ============
 @media (max-width: 600px) {
+  .review-dialog-overlay {
+    padding: var(--spacing-xs, 8px);
+    align-items: flex-start;
+  }
+
   .review-dialog {
-    max-height: 95vh;
+    max-height: calc(100vh - 16px);
     max-width: calc(100vw - 16px);
+    margin: 0;
   }
 
   .dialog-header {
     flex-direction: column;
     gap: var(--spacing-sm, 8px);
     align-items: flex-start;
+    position: sticky;
+    top: 0;
+    z-index: 10;
   }
 
   .dialog-footer {
     flex-direction: column-reverse;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
   }
 
   .btn {
@@ -754,6 +767,91 @@ watch(
 
   .review-summary {
     flex-direction: column;
+  }
+
+  .content-section {
+    min-height: 150px;
+  }
+
+  .content-preview {
+    max-height: 200px;
+  }
+}
+
+// ============ 竖屏模式适配 ============
+@media (max-height: 600px) {
+  .review-dialog-overlay {
+    padding: var(--spacing-xs, 8px);
+    align-items: flex-start;
+  }
+
+  .review-dialog {
+    max-height: calc(100vh - 16px);
+  }
+
+  .dialog-header {
+    padding: var(--spacing-sm, 12px) var(--spacing-md, 16px);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .dialog-footer {
+    padding: var(--spacing-sm, 12px) var(--spacing-md, 16px);
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+  }
+
+  .content-section {
+    min-height: 100px;
+  }
+
+  .content-preview {
+    max-height: 150px;
+  }
+
+  .variables-list {
+    max-height: 100px;
+  }
+}
+
+// ============ 极端竖屏模式（如横屏手机） ============
+@media (max-height: 400px) {
+  .review-dialog {
+    max-height: calc(100vh - 8px);
+  }
+
+  .dialog-header,
+  .dialog-footer {
+    padding: var(--spacing-xs, 8px) var(--spacing-sm, 12px);
+  }
+
+  .header-icon {
+    font-size: 18px;
+  }
+
+  .header-title {
+    font-size: var(--font-md, 14px);
+  }
+
+  .btn {
+    padding: 8px 16px;
+    font-size: var(--font-sm, 13px);
+  }
+
+  .review-summary {
+    padding: var(--spacing-xs, 8px) var(--spacing-sm, 12px);
+  }
+
+  .issues-section,
+  .variables-section {
+    padding: var(--spacing-xs, 8px) var(--spacing-sm, 12px);
+  }
+
+  .content-preview {
+    max-height: 100px;
+    padding: var(--spacing-xs, 8px) var(--spacing-sm, 12px);
   }
 }
 
