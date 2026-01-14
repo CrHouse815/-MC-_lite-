@@ -488,3 +488,131 @@ export function randomFillFormData(currentData?: Partial<GameStartFormData>): Ga
     additionalNotes: currentData?.additionalNotes || '',
   };
 }
+
+// ============ 预设相关类型定义 ============
+
+/**
+ * 开局预设数据
+ * 保存玩家在开局面板输入的内容，可以重复使用
+ */
+export interface GameStartPreset {
+  /** 预设唯一ID */
+  id: string;
+  /** 预设名称（用户自定义） */
+  name: string;
+  /** 预设描述（可选） */
+  description?: string;
+  /** 表单数据 */
+  formData: GameStartFormData;
+  /** 创建时间 */
+  createdAt: string;
+  /** 最后修改时间 */
+  updatedAt: string;
+  /** 是否为内置预设（内置预设不可删除） */
+  isBuiltin?: boolean;
+}
+
+/**
+ * 预设存储数据结构
+ * 用于 localStorage 持久化
+ */
+export interface PresetStorageData {
+  /** 版本号，用于数据迁移 */
+  version: number;
+  /** 预设列表 */
+  presets: GameStartPreset[];
+  /** 最后使用的预设ID */
+  lastUsedPresetId?: string;
+}
+
+/**
+ * 预设存储的 localStorage key
+ */
+export const PRESET_STORAGE_KEY = 'mclite_game_start_presets';
+
+/**
+ * 预设存储版本号
+ */
+export const PRESET_STORAGE_VERSION = 1;
+
+/**
+ * 生成预设ID
+ */
+export function generatePresetId(): string {
+  return `preset_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
+/**
+ * 创建新预设
+ * @param name 预设名称
+ * @param formData 表单数据
+ * @param description 预设描述（可选）
+ */
+export function createPreset(name: string, formData: GameStartFormData, description?: string): GameStartPreset {
+  const now = new Date().toISOString();
+  return {
+    id: generatePresetId(),
+    name,
+    description,
+    formData: { ...formData },
+    createdAt: now,
+    updatedAt: now,
+    isBuiltin: false,
+  };
+}
+
+/**
+ * 内置预设列表
+ * 提供一些常用的开局配置供用户快速选择
+ */
+export const BUILTIN_PRESETS: GameStartPreset[] = [
+  {
+    id: 'builtin_office_default',
+    name: '办公室 - 标准配置',
+    description: '第七处标准开局配置，适合办公室场景',
+    formData: QUICK_START_PRESET,
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    isBuiltin: true,
+  },
+  {
+    id: 'builtin_school_default',
+    name: '学校 - 标准配置',
+    description: '高中校园标准开局配置',
+    formData: {
+      ...DEFAULT_FORM_DATA,
+      sceneType: 'school',
+      sceneName: SCENE_TYPE_PRESETS.school.defaultName,
+      sceneDescription: SCENE_TYPE_PRESETS.school.defaultDescription,
+      playerPosition: '学生',
+      playerDepartment: '高二(1)班',
+      playerAge: 17,
+      rosterFields: SCENE_TYPE_PRESETS.school.defaultRosterFields,
+      dressCode: SCENE_TYPE_PRESETS.school.defaultDressCode,
+      otherRules: SCENE_TYPE_PRESETS.school.defaultOtherRules,
+    },
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    isBuiltin: true,
+  },
+  {
+    id: 'builtin_hospital_default',
+    name: '医院 - 标准配置',
+    description: '医院场景标准开局配置',
+    formData: {
+      ...DEFAULT_FORM_DATA,
+      sceneType: 'hospital',
+      sceneName: SCENE_TYPE_PRESETS.hospital.defaultName,
+      sceneDescription: SCENE_TYPE_PRESETS.hospital.defaultDescription,
+      playerPosition: '实习医生',
+      playerDepartment: '内科',
+      playerAge: 24,
+      rosterFields: SCENE_TYPE_PRESETS.hospital.defaultRosterFields,
+      dressCode: SCENE_TYPE_PRESETS.hospital.defaultDressCode,
+      otherRules: SCENE_TYPE_PRESETS.hospital.defaultOtherRules,
+    },
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    isBuiltin: true,
+  },
+];

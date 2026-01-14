@@ -221,6 +221,79 @@ export const useFormStore = defineStore('form', () => {
     formData.value = data;
   };
 
+  /** 自动填写表单数据（从变量系统读取玩家信息等固定内容） */
+  const autoFillFormData = () => {
+    const fields = currentFields.value;
+    const data: Record<string, unknown> = { ...formData.value };
+
+    // 玩家信息路径映射
+    const playerInfoMapping: Record<string, string> = {
+      applicant_name: 'MC.玩家.姓名',
+      applicant_dept: 'MC.玩家.部门',
+      applicant_position: 'MC.玩家.职位',
+      applicant_age: 'MC.玩家.年龄',
+      // 通用映射
+      姓名: 'MC.玩家.姓名',
+      部门: 'MC.玩家.部门',
+      职位: 'MC.玩家.职位',
+      年龄: 'MC.玩家.年龄',
+    };
+
+    // 日期字段自动填写当前日期
+    const dateFields = ['apply_date', 'date', '日期', '申请日期'];
+
+    for (const field of fields) {
+      // 1. 检查字段是否有 source 配置（优先使用）
+      if (field.source) {
+        const value = mvuStore.getVariable(field.source, null);
+        if (value !== null && value !== undefined && value !== '') {
+          data[field.fieldId] = value;
+          continue;
+        }
+      }
+
+      // 2. 检查是否是玩家信息字段（通过 fieldId 或 label 匹配）
+      const mappingKey = playerInfoMapping[field.fieldId]
+        ? field.fieldId
+        : playerInfoMapping[field.label]
+          ? field.label
+          : null;
+      if (mappingKey) {
+        const path = playerInfoMapping[mappingKey];
+        const value = mvuStore.getVariable(path, null);
+        if (value !== null && value !== undefined && value !== '') {
+          data[field.fieldId] = value;
+          continue;
+        }
+      }
+
+      // 3. 检查是否是日期字段
+      if (dateFields.includes(field.fieldId) || dateFields.includes(field.label)) {
+        if (!data[field.fieldId]) {
+          data[field.fieldId] = new Date().toISOString().split('T')[0];
+        }
+        continue;
+      }
+
+      // 4. 处理默认值（如果当前没有值）
+      if (data[field.fieldId] === undefined || data[field.fieldId] === null || data[field.fieldId] === '') {
+        if (field.defaultValue !== undefined) {
+          if (typeof field.defaultValue === 'string' && field.defaultValue.startsWith('{{')) {
+            // 处理模板变量
+            if (field.defaultValue === '{{currentDate}}') {
+              data[field.fieldId] = new Date().toISOString().split('T')[0];
+            }
+          } else {
+            data[field.fieldId] = field.defaultValue;
+          }
+        }
+      }
+    }
+
+    formData.value = data;
+    console.log('[FormStore] 自动填写完成:', data);
+  };
+
   /** 更新表单字段值 */
   const updateField = (fieldId: string, value: unknown) => {
     formData.value = { ...formData.value, [fieldId]: value };
@@ -710,6 +783,7 @@ export const useFormStore = defineStore('form', () => {
     destroy,
     selectForm,
     initializeFormData,
+    autoFillFormData,
     updateField,
     validateForm,
     submitForm,

@@ -17,6 +17,14 @@
           <p class="header-subtitle">配置你的游戏世界</p>
         </div>
       </div>
+      <!-- 预设快捷操作 -->
+      <div class="header-actions">
+        <button class="preset-btn" title="管理预设" @click="openPresetPanel">
+          <span class="preset-icon">📁</span>
+          <span class="preset-text">预设</span>
+          <span class="preset-count">{{ allPresets.length }}</span>
+        </button>
+      </div>
     </header>
 
     <!-- 面板主体 - 表单区域 -->
@@ -488,6 +496,10 @@
           <span class="btn-icon">🔄</span>
           <span class="btn-text">重置</span>
         </button>
+        <button class="btn btn-success" :disabled="isSubmitting" @click="openSavePresetDialog">
+          <span class="btn-icon">💾</span>
+          <span class="btn-text">保存预设</span>
+        </button>
       </div>
       <div class="footer-right">
         <button class="btn btn-outline-primary" :disabled="isSubmitting || !isFormValid" @click="handlePreviewPrompt">
@@ -566,12 +578,208 @@
           </div>
         </div>
       </transition>
+
+      <!-- 预设管理模态框 -->
+      <transition name="modal">
+        <div v-if="showPresetPanel" class="preset-panel-overlay" @click.self="closePresetPanel">
+          <div class="preset-panel-modal">
+            <div class="modal-header">
+              <div class="modal-title">
+                <span class="modal-icon">📁</span>
+                <h3>预设管理</h3>
+              </div>
+              <button class="modal-close" @click="closePresetPanel">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="preset-info">
+                <span class="info-icon">💡</span>
+                <span class="info-text">选择一个预设快速填充表单，或保存当前配置为新预设</span>
+              </div>
+
+              <!-- 预设列表 -->
+              <div class="preset-list">
+                <!-- 内置预设分组 -->
+                <div class="preset-group">
+                  <div class="group-header">
+                    <span class="group-icon">⭐</span>
+                    <span class="group-title">内置预设</span>
+                    <span class="group-count">{{ allPresets.filter(p => p.isBuiltin).length }}</span>
+                  </div>
+                  <div class="group-items">
+                    <div
+                      v-for="preset in allPresets.filter(p => p.isBuiltin)"
+                      :key="preset.id"
+                      class="preset-item"
+                      :class="{ active: selectedPresetId === preset.id }"
+                      @click="loadPreset(preset)"
+                    >
+                      <div class="preset-item-icon">{{ getPresetIcon(preset) }}</div>
+                      <div class="preset-item-content">
+                        <div class="preset-item-name">{{ preset.name }}</div>
+                        <div v-if="preset.description" class="preset-item-desc">{{ preset.description }}</div>
+                      </div>
+                      <div class="preset-item-badge builtin">内置</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 用户预设分组 -->
+                <div class="preset-group">
+                  <div class="group-header">
+                    <span class="group-icon">👤</span>
+                    <span class="group-title">我的预设</span>
+                    <span class="group-count">{{ allPresets.filter(p => !p.isBuiltin).length }}</span>
+                  </div>
+                  <div v-if="allPresets.filter(p => !p.isBuiltin).length === 0" class="group-empty">
+                    <span class="empty-icon">📝</span>
+                    <span class="empty-text">暂无自定义预设，点击下方按钮保存当前配置</span>
+                  </div>
+                  <div v-else class="group-items">
+                    <div
+                      v-for="preset in allPresets.filter(p => !p.isBuiltin)"
+                      :key="preset.id"
+                      class="preset-item"
+                      :class="{ active: selectedPresetId === preset.id }"
+                    >
+                      <div class="preset-item-icon" @click="loadPreset(preset)">{{ getPresetIcon(preset) }}</div>
+                      <div class="preset-item-content" @click="loadPreset(preset)">
+                        <div class="preset-item-name">{{ preset.name }}</div>
+                        <div v-if="preset.description" class="preset-item-desc">{{ preset.description }}</div>
+                        <div class="preset-item-meta">
+                          <span class="meta-date">{{ formatDate(preset.updatedAt) }}</span>
+                        </div>
+                      </div>
+                      <div class="preset-item-actions">
+                        <button class="action-btn" title="复制" @click.stop="duplicatePreset(preset.id)">📋</button>
+                        <button class="action-btn danger" title="删除" @click.stop="confirmDeletePreset(preset.id)">
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" @click="closePresetPanel">
+                <span class="btn-icon">✕</span>
+                <span class="btn-text">关闭</span>
+              </button>
+              <button
+                class="btn btn-success"
+                @click="
+                  closePresetPanel();
+                  openSavePresetDialog();
+                "
+              >
+                <span class="btn-icon">💾</span>
+                <span class="btn-text">保存当前为预设</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
+
+      <!-- 保存预设对话框 -->
+      <transition name="modal">
+        <div v-if="showSavePresetDialog" class="save-preset-overlay" @click.self="closeSavePresetDialog">
+          <div class="save-preset-modal">
+            <div class="modal-header">
+              <div class="modal-title">
+                <span class="modal-icon">💾</span>
+                <h3>保存预设</h3>
+              </div>
+              <button class="modal-close" @click="closeSavePresetDialog">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group">
+                <label class="form-label">
+                  预设名称
+                  <span class="required-mark">*</span>
+                </label>
+                <input
+                  v-model="newPresetName"
+                  type="text"
+                  class="form-input"
+                  :class="{ 'has-error': presetError && !newPresetName.trim() }"
+                  placeholder="输入预设名称"
+                  @keyup.enter="saveCurrentAsPreset"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">
+                  预设描述
+                  <span class="optional-mark">可选</span>
+                </label>
+                <textarea
+                  v-model="newPresetDescription"
+                  class="form-textarea"
+                  rows="2"
+                  placeholder="简要描述这个预设的用途..."
+                ></textarea>
+              </div>
+              <div v-if="presetError" class="error-message">
+                <span class="error-icon">⚠️</span>
+                <span>{{ presetError }}</span>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" :disabled="isSavingPreset" @click="closeSavePresetDialog">
+                <span class="btn-icon">✕</span>
+                <span class="btn-text">取消</span>
+              </button>
+              <button
+                class="btn btn-primary"
+                :disabled="isSavingPreset || !newPresetName.trim()"
+                @click="saveCurrentAsPreset"
+              >
+                <span v-if="isSavingPreset" class="btn-loading">
+                  <span class="loading-dot"></span>
+                  <span class="loading-dot"></span>
+                  <span class="loading-dot"></span>
+                </span>
+                <template v-else>
+                  <span class="btn-icon">✓</span>
+                  <span class="btn-text">保存</span>
+                </template>
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
+
+      <!-- 删除确认对话框 -->
+      <transition name="modal">
+        <div v-if="showDeleteConfirm" class="delete-confirm-overlay" @click.self="cancelDeletePreset">
+          <div class="delete-confirm-modal">
+            <div class="modal-header danger">
+              <div class="modal-title">
+                <span class="modal-icon">⚠️</span>
+                <h3>确认删除</h3>
+              </div>
+            </div>
+            <div class="modal-body">
+              <p class="confirm-text">确定要删除这个预设吗？此操作无法撤销。</p>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-secondary" @click="cancelDeletePreset">
+                <span class="btn-icon">✕</span>
+                <span class="btn-text">取消</span>
+              </button>
+              <button class="btn btn-danger" @click="executeDeletePreset">
+                <span class="btn-icon">🗑️</span>
+                <span class="btn-text">删除</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
     </teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import {
   DEFAULT_FORM_DATA,
   QUICK_START_PRESET,
@@ -581,8 +789,10 @@ import {
   validateFormData,
   type FormValidationError,
   type GameStartFormData,
+  type GameStartPreset,
   type SceneType,
 } from '../../types/gameStart';
+import { presetService } from '../../services/PresetService';
 
 // ============ Emits ============
 const emit = defineEmits<{
@@ -618,6 +828,38 @@ const showPromptPreview = ref(false);
 
 /** 预览的提示词文本（可编辑） */
 const previewPromptText = ref('');
+
+// ============ 预设相关状态 ============
+
+/** 是否显示预设管理面板 */
+const showPresetPanel = ref(false);
+
+/** 是否显示保存预设对话框 */
+const showSavePresetDialog = ref(false);
+
+/** 新预设名称 */
+const newPresetName = ref('');
+
+/** 新预设描述 */
+const newPresetDescription = ref('');
+
+/** 所有预设列表 */
+const allPresets = ref<GameStartPreset[]>([]);
+
+/** 当前选中的预设ID */
+const selectedPresetId = ref<string | null>(null);
+
+/** 是否正在保存预设 */
+const isSavingPreset = ref(false);
+
+/** 预设操作错误信息 */
+const presetError = ref<string | null>(null);
+
+/** 是否显示删除确认 */
+const showDeleteConfirm = ref(false);
+
+/** 待删除的预设ID */
+const presetToDelete = ref<string | null>(null);
 
 // ============ 条目式输入状态 ============
 
@@ -1035,6 +1277,225 @@ const syncFormDataToTags = (): void => {
 
 // 初始化时同步
 syncFormDataToTags();
+
+// ============ 预设相关方法 ============
+
+/**
+ * 加载预设列表
+ */
+const loadPresets = (): void => {
+  allPresets.value = presetService.getAllPresets();
+
+  // 尝试加载最后使用的预设
+  const lastUsedId = presetService.getLastUsedPresetId();
+  if (lastUsedId) {
+    selectedPresetId.value = lastUsedId;
+  }
+};
+
+/**
+ * 打开预设管理面板
+ */
+const openPresetPanel = (): void => {
+  loadPresets();
+  showPresetPanel.value = true;
+};
+
+/**
+ * 关闭预设管理面板
+ */
+const closePresetPanel = (): void => {
+  showPresetPanel.value = false;
+  presetError.value = null;
+};
+
+/**
+ * 打开保存预设对话框
+ */
+const openSavePresetDialog = (): void => {
+  // 根据当前场景类型生成默认名称
+  const sceneLabel = SCENE_TYPE_PRESETS[formData.sceneType]?.label || '自定义';
+  const timestamp = new Date().toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  newPresetName.value = `${sceneLabel} - ${formData.sceneName || '未命名'} (${timestamp})`;
+  newPresetDescription.value = '';
+  showSavePresetDialog.value = true;
+};
+
+/**
+ * 关闭保存预设对话框
+ */
+const closeSavePresetDialog = (): void => {
+  showSavePresetDialog.value = false;
+  newPresetName.value = '';
+  newPresetDescription.value = '';
+  presetError.value = null;
+};
+
+/**
+ * 保存当前表单为预设
+ */
+const saveCurrentAsPreset = async (): Promise<void> => {
+  if (!newPresetName.value.trim()) {
+    presetError.value = '请输入预设名称';
+    return;
+  }
+
+  isSavingPreset.value = true;
+  presetError.value = null;
+
+  try {
+    // 同步标签数据到 formData
+    syncTagsToFormData();
+
+    const preset = presetService.savePreset(
+      newPresetName.value.trim(),
+      formData,
+      newPresetDescription.value.trim() || undefined,
+    );
+
+    if (preset) {
+      // 刷新预设列表
+      loadPresets();
+      selectedPresetId.value = preset.id;
+      closeSavePresetDialog();
+
+      if (typeof toastr !== 'undefined') {
+        toastr.success(`预设"${preset.name}"已保存`, '保存成功', { timeOut: 2000 });
+      }
+    } else {
+      presetError.value = '保存预设失败，请重试';
+    }
+  } catch (err) {
+    console.error('[GameStartPanel] 保存预设失败:', err);
+    presetError.value = err instanceof Error ? err.message : '保存失败';
+  } finally {
+    isSavingPreset.value = false;
+  }
+};
+
+/**
+ * 加载预设到表单
+ */
+const loadPreset = (preset: GameStartPreset): void => {
+  // 复制预设数据到表单
+  Object.assign(formData, preset.formData);
+
+  // 同步到条目式UI
+  syncFormDataToTags();
+
+  // 记录最后使用的预设
+  presetService.setLastUsedPreset(preset.id);
+  selectedPresetId.value = preset.id;
+
+  // 关闭预设面板
+  closePresetPanel();
+
+  if (typeof toastr !== 'undefined') {
+    toastr.info(`已加载预设"${preset.name}"`, '加载成功', { timeOut: 2000 });
+  }
+};
+
+/**
+ * 快速加载预设（从下拉选择器）
+ */
+const quickLoadPreset = (presetId: string): void => {
+  const preset = presetService.getPresetById(presetId);
+  if (preset) {
+    loadPreset(preset);
+  }
+};
+
+/**
+ * 确认删除预设
+ */
+const confirmDeletePreset = (presetId: string): void => {
+  presetToDelete.value = presetId;
+  showDeleteConfirm.value = true;
+};
+
+/**
+ * 执行删除预设
+ */
+const executeDeletePreset = (): void => {
+  if (!presetToDelete.value) return;
+
+  const preset = presetService.getPresetById(presetToDelete.value);
+  const success = presetService.deletePreset(presetToDelete.value);
+
+  if (success) {
+    loadPresets();
+
+    // 如果删除的是当前选中的预设，清除选中状态
+    if (selectedPresetId.value === presetToDelete.value) {
+      selectedPresetId.value = null;
+    }
+
+    if (typeof toastr !== 'undefined' && preset) {
+      toastr.success(`预设"${preset.name}"已删除`, '删除成功', { timeOut: 2000 });
+    }
+  } else if (typeof toastr !== 'undefined') {
+    toastr.error('删除预设失败', '错误', { timeOut: 3000 });
+  }
+
+  showDeleteConfirm.value = false;
+  presetToDelete.value = null;
+};
+
+/**
+ * 取消删除
+ */
+const cancelDeletePreset = (): void => {
+  showDeleteConfirm.value = false;
+  presetToDelete.value = null;
+};
+
+/**
+ * 复制预设
+ */
+const duplicatePreset = (presetId: string): void => {
+  const newPreset = presetService.duplicatePreset(presetId);
+  if (newPreset) {
+    loadPresets();
+    if (typeof toastr !== 'undefined') {
+      toastr.success(`已创建预设副本"${newPreset.name}"`, '复制成功', { timeOut: 2000 });
+    }
+  }
+};
+
+/**
+ * 获取预设的场景图标
+ */
+const getPresetIcon = (preset: GameStartPreset): string => {
+  return SCENE_TYPE_PRESETS[preset.formData.sceneType]?.icon || '✨';
+};
+
+/**
+ * 格式化日期显示
+ */
+const formatDate = (dateStr: string): string => {
+  try {
+    const date = new Date(dateStr);
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return dateStr;
+  }
+};
+
+// 组件挂载时加载预设
+onMounted(() => {
+  loadPresets();
+});
 
 /**
  * 处理随机填充
@@ -2492,6 +2953,385 @@ watch(
 
     .btn-icon {
       font-size: 11px;
+    }
+  }
+}
+
+// ============ 预设相关样式 ============
+
+// 头部预设按钮
+.header-actions {
+  margin-left: auto;
+}
+
+.preset-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-sm);
+  color: white;
+  font-size: var(--font-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+  }
+
+  .preset-icon {
+    font-size: 14px;
+  }
+
+  .preset-text {
+    font-weight: 500;
+  }
+
+  .preset-count {
+    background: rgba(255, 255, 255, 0.3);
+    padding: 1px 6px;
+    border-radius: var(--radius-xs);
+    font-size: var(--font-xs);
+    font-weight: 600;
+  }
+}
+
+// 成功按钮样式
+.btn-success {
+  background: linear-gradient(135deg, var(--success-color), #28a745);
+  color: white;
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+}
+
+// 危险按钮样式
+.btn-danger {
+  background: linear-gradient(135deg, var(--error-color), #dc3545);
+  color: white;
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+}
+
+// 预设管理模态框
+.preset-panel-overlay,
+.save-preset-overlay,
+.delete-confirm-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10030;
+  padding: var(--spacing-md);
+  overflow-y: auto;
+}
+
+.preset-panel-modal {
+  width: 100%;
+  max-width: 600px;
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: auto;
+}
+
+.save-preset-modal,
+.delete-confirm-modal {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: auto;
+}
+
+// 预设信息提示
+.preset-info {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--info-light);
+  border: 1px solid var(--info-color);
+  border-radius: var(--radius-sm);
+  color: var(--info-color);
+  font-size: var(--font-sm);
+  margin-bottom: var(--spacing-md);
+
+  .info-icon {
+    flex-shrink: 0;
+    font-size: 16px;
+  }
+
+  .info-text {
+    line-height: 1.5;
+  }
+}
+
+// 预设列表
+.preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+// 预设分组
+.preset-group {
+  background: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+
+  .group-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+
+    .group-icon {
+      font-size: 14px;
+    }
+
+    .group-title {
+      font-size: var(--font-sm);
+      font-weight: 600;
+      color: var(--text-color);
+    }
+
+    .group-count {
+      margin-left: auto;
+      background: var(--primary-light);
+      color: var(--primary-color);
+      padding: 2px 8px;
+      border-radius: var(--radius-xs);
+      font-size: var(--font-xs);
+      font-weight: 600;
+    }
+  }
+
+  .group-items {
+    padding: var(--spacing-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .group-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-lg);
+    color: var(--text-disabled);
+
+    .empty-icon {
+      font-size: 32px;
+      opacity: 0.5;
+    }
+
+    .empty-text {
+      font-size: var(--font-sm);
+      text-align: center;
+    }
+  }
+}
+
+// 预设项
+.preset-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    border-color: var(--primary-color);
+    background: var(--primary-light);
+  }
+
+  &.active {
+    border-color: var(--primary-color);
+    background: var(--primary-light);
+
+    .preset-item-name {
+      color: var(--primary-color);
+    }
+  }
+
+  .preset-item-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .preset-item-content {
+    flex: 1;
+    min-width: 0;
+
+    .preset-item-name {
+      font-size: var(--font-sm);
+      font-weight: 600;
+      color: var(--text-color);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .preset-item-desc {
+      font-size: var(--font-xs);
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    .preset-item-meta {
+      display: flex;
+      gap: var(--spacing-sm);
+      margin-top: 4px;
+
+      .meta-date {
+        font-size: var(--font-xs);
+        color: var(--text-disabled);
+      }
+    }
+  }
+
+  .preset-item-badge {
+    padding: 2px 8px;
+    border-radius: var(--radius-xs);
+    font-size: var(--font-xs);
+    font-weight: 600;
+    flex-shrink: 0;
+
+    &.builtin {
+      background: var(--info-light);
+      color: var(--info-color);
+    }
+  }
+
+  .preset-item-actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    flex-shrink: 0;
+
+    .action-btn {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+
+      &:hover {
+        background: var(--bg-hover);
+        border-color: var(--primary-color);
+      }
+
+      &.danger:hover {
+        background: var(--error-light);
+        border-color: var(--error-color);
+      }
+    }
+  }
+}
+
+// 错误消息
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--error-light);
+  border: 1px solid var(--error-color);
+  border-radius: var(--radius-sm);
+  color: var(--error-color);
+  font-size: var(--font-sm);
+  margin-top: var(--spacing-sm);
+
+  .error-icon {
+    flex-shrink: 0;
+    font-size: 14px;
+  }
+}
+
+// 确认文本
+.confirm-text {
+  font-size: var(--font-sm);
+  color: var(--text-color);
+  line-height: 1.6;
+  margin: 0;
+  text-align: center;
+  padding: var(--spacing-md);
+}
+
+// 危险头部
+.modal-header.danger {
+  background: linear-gradient(135deg, var(--error-color), #dc3545);
+}
+
+// 预设模态框响应式
+@media (max-width: 480px) {
+  .preset-panel-modal {
+    max-width: 100%;
+    margin: var(--spacing-sm);
+  }
+
+  .preset-item {
+    flex-wrap: wrap;
+
+    .preset-item-actions {
+      width: 100%;
+      justify-content: flex-end;
+      margin-top: var(--spacing-xs);
+      padding-top: var(--spacing-xs);
+      border-top: 1px solid var(--border-light);
+    }
+  }
+
+  .preset-btn {
+    .preset-text {
+      display: none;
     }
   }
 }

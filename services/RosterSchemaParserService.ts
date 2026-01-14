@@ -184,6 +184,10 @@ export class RosterSchemaParserService {
 
   /**
    * 将 ParsedRosterSchema 转换为 RosterSchema（用于兼容旧版代码）
+   *
+   * 字段分组策略：
+   * 1. 将字段按 order 值分成若干"簇"（相邻字段 order 差值 > 5 则视为不同簇）
+   * 2. 将每个簇分配给 order 值最接近的分组
    */
   static toRosterSchema(parsed: ParsedRosterSchema): RosterSchema {
     // 构建字段容器
@@ -194,28 +198,77 @@ export class RosterSchemaParserService {
       $meta: { extensible: true },
     };
 
-    // 按分组收集字段
-    // 策略：根据字段的 order 范围来确定属于哪个分组
     const sortedGroups = [...parsed.groups].sort((a, b) => a.order - b.order);
     const sortedFields = [...parsed.fields].sort((a, b) => a.order - b.order);
 
-    for (let i = 0; i < sortedGroups.length; i++) {
-      const group = sortedGroups[i];
-      const nextGroup = sortedGroups[i + 1];
-
-      // 确定该分组的字段 order 范围
-      const minOrder = group.order;
-      const maxOrder = nextGroup ? nextGroup.order : Infinity;
-
-      // 收集在该范围内的字段
-      const groupFields = sortedFields.filter(f => f.order >= minOrder && f.order < maxOrder).map(f => f.fieldId);
-
-      groups[group.groupId] = {
-        label: group.label,
-        order: group.order,
-        collapsed: group.collapsed,
-        fields: groupFields,
+    // 如果没有分组定义，将所有字段放入默认分组
+    if (sortedGroups.length === 0) {
+      groups['_default'] = {
+        label: '基本信息',
+        order: 0,
+        collapsed: false,
+        fields: sortedFields.map(f => f.fieldId),
       };
+    } else {
+      // 策略：将字段分成"簇"，然后分配给最近的分组
+      // 簇的定义：相邻字段 order 差值 > 5 则视为不同簇
+      const fieldClusters: Array<{ fields: FieldDefInDoc[]; avgOrder: number }> = [];
+      let currentCluster: FieldDefInDoc[] = [];
+
+      for (let i = 0; i < sortedFields.length; i++) {
+        const field = sortedFields[i];
+        const prevField = sortedFields[i - 1];
+
+        if (prevField && field.order - prevField.order > 5) {
+          // 开始新簇
+          if (currentCluster.length > 0) {
+            const avgOrder = currentCluster.reduce((sum, f) => sum + f.order, 0) / currentCluster.length;
+            fieldClusters.push({ fields: [...currentCluster], avgOrder });
+          }
+          currentCluster = [field];
+        } else {
+          currentCluster.push(field);
+        }
+      }
+
+      // 添加最后一个簇
+      if (currentCluster.length > 0) {
+        const avgOrder = currentCluster.reduce((sum, f) => sum + f.order, 0) / currentCluster.length;
+        fieldClusters.push({ fields: [...currentCluster], avgOrder });
+      }
+
+      // 将每个簇分配给最近的分组
+      const groupFieldsMap: Record<string, string[]> = {};
+      for (const group of sortedGroups) {
+        groupFieldsMap[group.groupId] = [];
+      }
+
+      for (const cluster of fieldClusters) {
+        // 找到 order 值最接近的分组
+        let closestGroup = sortedGroups[0];
+        let minDistance = Math.abs(cluster.avgOrder - closestGroup.order);
+
+        for (const group of sortedGroups) {
+          const distance = Math.abs(cluster.avgOrder - group.order);
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestGroup = group;
+          }
+        }
+
+        // 将簇中的字段添加到该分组
+        groupFieldsMap[closestGroup.groupId].push(...cluster.fields.map(f => f.fieldId));
+      }
+
+      // 构建分组
+      for (const group of sortedGroups) {
+        groups[group.groupId] = {
+          label: group.label,
+          order: group.order,
+          collapsed: group.collapsed,
+          fields: groupFieldsMap[group.groupId],
+        };
+      }
     }
 
     // 如果有字段不属于任何分组，创建一个默认分组

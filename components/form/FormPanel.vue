@@ -104,10 +104,25 @@
           <div v-else-if="currentForm" :key="effectiveFormId" class="form-content">
             <!-- 表单标题 -->
             <div class="form-header">
-              <h3 class="form-title">{{ currentFormMeta?.formName }}</h3>
-              <span v-if="currentFormMeta?.description" class="form-description">
-                {{ currentFormMeta.description }}
-              </span>
+              <div class="form-header-top">
+                <div class="form-title-section">
+                  <h3 class="form-title">{{ currentFormMeta?.formName }}</h3>
+                  <span v-if="currentFormMeta?.description" class="form-description">
+                    {{ currentFormMeta.description }}
+                  </span>
+                </div>
+                <div class="form-header-actions">
+                  <button
+                    class="auto-fill-btn"
+                    :disabled="isSubmitting"
+                    title="从变量系统自动填写申请人、部门、日期等固定信息"
+                    @click="handleAutoFill"
+                  >
+                    <span class="btn-icon">✨</span>
+                    <span class="btn-text">自动填写</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             <!-- 工作流提示 -->
@@ -184,8 +199,17 @@ const currentFormMeta = computed(() => formStore.currentFormMeta);
 const getCurrentFormApplications = computed(() => formStore.getCurrentFormApplications);
 const applicationCount = computed(() => formStore.applicationCount);
 
-const { initialize, refresh, selectForm, updateField, validateForm, submitForm, shouldShowField, initializeFormData } =
-  formStore;
+const {
+  initialize,
+  refresh,
+  selectForm,
+  updateField,
+  validateForm,
+  submitForm,
+  shouldShowField,
+  initializeFormData,
+  autoFillFormData,
+} = formStore;
 
 /** 当前视图：form（表单填写）或 records（申请记录） */
 const currentView = ref<'form' | 'records'>('form');
@@ -238,6 +262,13 @@ const handleFieldUpdate = (fieldId: string, value: unknown) => {
     delete newErrors[fieldId];
     fieldErrors.value = newErrors;
   }
+};
+
+/** 处理自动填写 */
+const handleAutoFill = () => {
+  autoFillFormData();
+  // 清除错误提示
+  fieldErrors.value = {};
 };
 
 /** 处理重置 */
@@ -668,6 +699,17 @@ onMounted(() => {
   padding-bottom: 16px;
   border-bottom: 2px solid var(--primary-color);
 
+  .form-header-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .form-title-section {
+    flex: 1;
+  }
+
   .form-title {
     margin: 0 0 8px 0;
     font-size: 20px;
@@ -678,6 +720,50 @@ onMounted(() => {
     display: block;
     font-size: 14px;
     color: var(--text-secondary);
+  }
+
+  .form-header-actions {
+    flex-shrink: 0;
+  }
+
+  .auto-fill-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+
+    .btn-icon {
+      font-size: 14px;
+    }
+
+    .btn-text {
+      white-space: nowrap;
+    }
+
+    &:hover:not(:disabled) {
+      background: linear-gradient(135deg, #7c3aed, #6d28d9);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(139, 92, 246, 0.4);
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(0);
+      box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
   }
 }
 
