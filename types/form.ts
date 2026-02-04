@@ -1,6 +1,10 @@
 /**
- * MClite - 表单系统类型定义
- * 支持从规章制度中解析表单定义
+ * MClite v7 - 表单系统类型定义
+ * 适配精简变量结构（递归自相似节点）：
+ * - $formMeta 在文档根级别，无 formId（用文档 key 作为 ID）
+ * - $fieldDef 嵌入在递归节点中（与 _t, _s 并列）
+ * - 字段顺序由深度优先遍历顺序决定
+ * - 支持 table、showWhen、conditionalRequired 等高级类型
  */
 
 // ========== 表单元数据 ==========
@@ -13,9 +17,8 @@ export interface WorkflowStep {
   canReject?: boolean;
 }
 
-/** 表单元数据（嵌入在规章制度中） */
+/** 表单元数据（文档级别的 $formMeta） */
 export interface FormMeta {
-  formId: string;
   formName: string;
   description?: string;
   targetPath: string;
@@ -35,13 +38,16 @@ export interface FormFieldOption {
 
 /** 表格列定义 */
 export interface TableColumn {
-  key: string;
+  columnId?: string;
+  key?: string;
   label: string;
   type: string;
+  width?: string;
   required?: boolean;
   options?: string[];
   min?: number;
   max?: number;
+  defaultValue?: unknown;
 }
 
 /** 条件显示规则 */
@@ -58,12 +64,13 @@ export interface ConditionalRequiredRule {
   minLength?: number;
 }
 
-/** 表单字段定义（嵌入在规章制度条款中） */
-export interface FormFieldDef {
-  belongsTo: string;
-  fieldId: string;
+/**
+ * 简化版表单字段定义（来自 section 的 $fieldDef）
+ * 注意：无 belongsTo、无 formPosition、fieldId 可选
+ */
+export interface SimpleFieldDef {
+  fieldId?: string;
   label: string;
-  formPosition: number;
   inputType:
     | 'text'
     | 'textarea'
@@ -81,6 +88,7 @@ export interface FormFieldDef {
   sourceType?: 'roster' | 'variable';
   sourcePath?: string;
   displayField?: string;
+  multiple?: boolean;
   options?: FormFieldOption[] | string[];
   placeholder?: string;
   helpText?: string;
@@ -97,88 +105,38 @@ export interface FormFieldDef {
   conditionalRequired?: ConditionalRequiredRule;
 }
 
-// ========== 花名册Schema定义 ==========
-
-/** 花名册元数据 */
-export interface RosterMeta {
-  rosterId: string;
-  targetPath: string;
-  primaryKey: string;
-  displayField: string;
-  groupByField?: string;
-}
-
-/** 花名册分组定义 */
-export interface RosterGroupDef {
-  belongsTo: string;
-  groupId: string;
-  label: string;
-  order: number;
-  collapsed?: boolean;
-}
-
-/** 花名册字段定义 */
-export interface RosterFieldDef {
-  belongsTo: string;
+/**
+ * 解析后的表单字段（带自动生成的 fieldId 和排序位置）
+ */
+export interface FormFieldDef extends SimpleFieldDef {
   fieldId: string;
-  label: string;
-  type: 'string' | 'number' | 'text' | 'enum' | 'tags' | 'boolean';
-  description?: string;
-  showInList?: boolean;
-  showInSummary?: boolean;
-  order: number;
-  options?: string[];
-  default?: unknown;
+  formPosition: number;
 }
 
 // ========== 解析结果 ==========
 
-/** 表单定义（从规章制度解析出的完整表单） */
+/** 表单定义（从文档解析出的完整表单） */
 export interface FormDefinition {
   meta: FormMeta;
   fields: FormFieldDef[];
   sourceDocId: string;
 }
 
-/** 花名册Schema定义（从规章制度解析出的完整Schema） */
-export interface RosterSchemaDefinition {
-  meta: RosterMeta;
-  fields: RosterFieldDef[];
-  groups: RosterGroupDef[];
-  sourceDocId: string;
-}
-
-/** 所有表单和花名册定义的集合 */
+/** 所有表单定义的集合 */
 export interface ParsedDefinitions {
   forms: Record<string, FormDefinition>;
-  rosters: Record<string, RosterSchemaDefinition>;
 }
 
 // ========== 表单数据 ==========
 
-/** 表单提交数据 */
-export interface FormSubmitData {
-  formId: string;
-  data: Record<string, unknown>;
-  submittedAt: string;
-  status: 'pending' | 'approved' | 'rejected';
-}
-
 /** 申请记录（从摘要文本解析） */
 export interface ApplicationRecord {
-  /** 申请编号 */
   appId: string;
-  /** 原始摘要文本 */
   summary: string;
-  /** 表单类型（如"物资领用申请"） */
   formType: string;
-  /** 申请人 */
   applicant: string;
-  /** 申请日期 */
   date: string;
-  /** 状态 */
   status: string;
-  /** 其他详细字段 */
   details: Record<string, string>;
 }
 

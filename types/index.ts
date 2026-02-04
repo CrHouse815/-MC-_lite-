@@ -9,54 +9,35 @@ export * from './mvu';
 // 游戏相关类型
 export * from './game';
 
-// MClite v2 - 花名册类型（Schema-Driven）
+// MClite v4 - 花名册类型（简化版）
 export {
   DEFAULT_ROSTER,
-  EntriesContainer,
-  EntriesMeta,
-  FieldDefinition,
-  FieldsContainer,
-  FieldsMeta,
-  // 类型
-  FieldType,
+  DEFAULT_SCHEMA,
+  extractEntries,
   filterNonMetaKeys,
-  getFieldsSorted,
-  getGroupsSorted,
-  getListFields,
-  getSummaryFields,
-  GroupDefinition,
-  GroupsContainer,
-  GroupsMeta,
-  // 函数
-  isMetaKey,
-  // 常量
+  getSchemaFields,
+  isSpecialKey,
+  isValidRoster,
   ROSTER_PATH,
-  RosterEntry,
-  RosterSchema,
-  RosterV2,
+  type Roster,
+  type RosterEntry,
+  type RosterMeta,
+  type RosterSchema
 } from './roster';
 
-// MClite v2 - 文档类型（递归树形结构，支持多文档）
+// MClite v4 - 文档类型（简化版）
 export {
-  // 多文档容器
   convertLegacyToMultiDoc,
   DEFAULT_DOCUMENT_ENTRY,
   DEFAULT_DOCUMENTS,
-  DocumentEntry,
-  // 常量
   DOCUMENTS_PATH,
-  DocumentsContainer,
-  Section as DocumentSection,
-  DocumentsMeta,
-  DocumentV2,
   flattenSections,
   getDocumentsSorted,
-  // 函数（使用 roster 版本的 isMetaKey 和 filterNonMetaKeys）
-  getSectionsSorted, // 重命名避免与 handbook.ts 冲突
+  getSectionsSorted,
   isLegacySingleDocument,
-  SectionsContainer,
-  // 类型
-  SectionsMeta,
+  type DocumentEntry,
+  type DocumentsContainer, type Section as DocumentSection, type DocumentsMeta, type SectionsContainer,
+  type SectionsMeta
 } from './document';
 
 // 数据库结构类型
@@ -79,7 +60,7 @@ export {
   getPersonnelList,
   MetaInfo,
   PersonnelRecord,
-  SAMU7Database,
+  SAMU7Database
 } from './database';
 
 // AI上下文类型

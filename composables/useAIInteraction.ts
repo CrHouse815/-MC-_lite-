@@ -1633,24 +1633,66 @@ ${lastAIResponse.value}
 
   /**
    * 恢复AI内容数据（读档时调用）
-   * 关键修复：恢复上一次AI回复的完整内容
+   *
+   * 【关键修复v2】优先使用 chatMessage0Snapshot（直接从酒馆消息0读取的完整快照）
+   * 这包含了 thinking、历史记录、UpdateVariable、gametxt 等所有标签的完整内容
+   * 如果快照不存在（旧版存档），回退使用 lastAIResponse
+   *
+   * 恢复流程：
+   * 1. 恢复Vue响应式状态（前端面板显示）
+   * 2. 将完整内容写入酒馆聊天层（消息0）—— 使用消息0快照或lastAIResponse
    */
-  const restoreAIContentData = (data: AIContentData): void => {
-    console.log('[useAIInteraction] 恢复AI内容数据');
+  const restoreAIContentData = async (data: AIContentData): Promise<void> => {
+    console.log('[useAIInteraction] 恢复AI内容数据（含酒馆聊天层同步 v2）');
 
+    // 1. 恢复Vue响应式状态（前端面板显示）
     currentContent.value = data.currentContent || '';
     swipes.value = data.swipes || [];
     currentSwipeIndex.value = data.currentSwipeIndex || 0;
     lastUserInput.value = data.lastUserInput || '';
     lastUpdateTime.value = data.lastUpdateTime || '';
-    lastAIResponse.value = data.lastAIResponse || ''; // 恢复完整的AI回复
+    lastAIResponse.value = data.lastAIResponse || ''; // 恢复完整的AI回复（用于下次上下文注入）
 
-    console.log('[useAIInteraction] AI内容已恢复:', {
+    console.log('[useAIInteraction] Vue状态已恢复:', {
       contentLength: currentContent.value.length,
       swipesCount: swipes.value.length,
       currentIndex: currentSwipeIndex.value,
       lastAIResponseLength: lastAIResponse.value.length,
+      hasMessage0Snapshot: !!data.chatMessage0Snapshot,
+      message0SnapshotLength: data.chatMessage0Snapshot?.length || 0,
     });
+
+    // 2. 【关键修复v2】将完整内容写入酒馆聊天层（消息0）
+    // 优先使用 chatMessage0Snapshot：这是存档时直接从酒馆消息0读取的完整内容
+    // 包含 thinking、历史记录、UpdateVariable、gametxt 等所有标签
+    // 回退使用 lastAIResponse：旧版存档可能没有 chatMessage0Snapshot
+    const contentToRestore = data.chatMessage0Snapshot || data.lastAIResponse || '';
+
+    if (contentToRestore) {
+      const source = data.chatMessage0Snapshot ? '消息0快照' : 'lastAIResponse';
+      console.log(`[useAIInteraction] 使用 ${source} 恢复酒馆聊天层，长度: ${contentToRestore.length}`);
+
+      try {
+        const syncResult = await saveAIReplyToChat(contentToRestore);
+        if (syncResult) {
+          console.log(`[useAIInteraction] 酒馆聊天层已恢复（来源: ${source}）`);
+        } else {
+          console.warn('[useAIInteraction] 酒馆聊天层恢复失败，仅前端显示已恢复');
+        }
+      } catch (err) {
+        console.error('[useAIInteraction] 酒馆聊天层恢复异常:', err);
+        // 不抛出错误，至少前端显示已恢复
+      }
+
+      // 如果使用了 chatMessage0Snapshot 且 lastAIResponse 为空，用快照填充
+      // 确保下次AI请求时上下文注入有数据
+      if (data.chatMessage0Snapshot && !lastAIResponse.value) {
+        lastAIResponse.value = data.chatMessage0Snapshot;
+        console.log('[useAIInteraction] 用消息0快照填充 lastAIResponse（确保上下文注入）');
+      }
+    } else {
+      console.log('[useAIInteraction] 无可用内容，跳过酒馆聊天层同步');
+    }
   };
 
   // ========== MVU拦截器管理（已禁用） ==========

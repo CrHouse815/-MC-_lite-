@@ -1,0 +1,842 @@
+
+<status_current_variables>
+{{get_message_variable::stat_data}}
+</status_current_variables>
+
+<变量更新规则>
+严格按照以下规则和格式进行输出，并确定哪个变量是否需要更新，禁止额外添加标签，严格按照以下格式输出：
+rule:
+  description:
+    - You should output the update analysis in the end of the next response, following the variables list defined in <status_current_variables> section which will be provided by the previous turn.
+    - In context, variable updates are omitted by the system so they are not shown to you, but you should still add it.
+    - There are 4 commands can be used to adjust the data: `_.set`, `_.assign`, `_.remove` and `_.add`.
+    - to set a certain value, use `_.set`, it supports 2 or 3 input args.
+    - to insert something into an array or object, use `_.assign`, it supports 2 or 3 input args.
+    - to delete something from an object/array, use `_.remove`, it supports 1 or 2 input args.
+    - If you need to assign or remove multiple values, use `_.assign` or `_.remove` multiple times, not in a single command.
+    - to add a delta to a number, use `_.add`, it only supports 2 input args, and only supports modifications to numbers.
+    - It is allowed to use math expressions for number inputs.
+  analysis:
+    - You must rethink what variables are defined in the previous `<status_current_variables>` property, and analyze how to update each of them accordingly.
+    - 数据结构与路径规则:
+        - 花名册条目: 条目在 `MC.花名册.entries` 下，路径格式为 `MC.花名册.entries.条目ID.字段名`
+        - 花名册Schema: 内联在 `MC.花名册.$schema` 中，一般不需修改
+        - 文档节点: 采用递归自相似节点结构，路径按层级key直接嵌套，格式为 `MC.文档.文档名.章key.节key.条key`
+        - 文档子节点(_s): 带子节点的条目路径格式为 `MC.文档.文档名.章key.节key.条key._s.编号key`，可无限嵌套 `._s.编号key._s.编号key`
+        - 文档正文(_t): 带子节点的条目正文路径格式为 `MC.文档.文档名.章key.节key.条key._t`
+        - 申请记录: 路径格式为 `MC.申请记录.类别.申请编号`
+    - 操作规则:
+        - 创建: 使用 `_.assign('父路径', '条目名称', {属性对象})` 来添加新条目
+        - 修改: 使用 `_.set` 或 `_.add` 等命令，路径需精确到具体属性
+        - 先创建后修改: 必须先使用 `_.assign` 完整创建条目，才能对该条目的内部属性进行修改。严禁在不存在的条目上执行修改操作
+        - 键名禁止包含点号: 点号(.)是路径分隔符，键名中不能包含点号。如 `No.001` 错误，应使用 `No001`
+    - 使用简体中文作为//批注的输出
+    - 非必要不使用remove删除内容
+
+ ## **你只能使用_.set、_.add、_.assign、_.remove这四个指令，禁止使用_.get等未要求的指令格式**
+
+<花名册修改准则>
+# 新角色人物添加（极为重要）：
+## 以下内容必须分步使用规定的指令进行添加，禁止遗漏
+  - 1.查看花名册的 `$schema.fields` 了解需要填写哪些字段
+  - 2.使用 `_.assign('MC.花名册.entries', '条目ID', {完整属性对象})` 一次性创建完整条目
+  - 3.后续修改单个字段使用 `_.set('MC.花名册.entries.条目ID.字段名', 旧值, 新值)`
+  - 4.为已存在条目添加新字段时，必须用 `_.assign('MC.花名册.entries', '条目ID', {所有原字段+新字段})` 覆盖整个条目
+</花名册修改准则>
+
+  format: |-
+    <UpdateVariable>
+        //${reason}
+        _.set('${path}', ${old}?, ${new});
+        //${reason}
+        _.assign('${path}', ${key_or_index}?, ${value});
+        //${reason}
+        _.remove('${path}', ${key_or_index_or_value}?);
+        //${reason}
+        _.add('${path}', ${delta});
+    </UpdateVariable>
+
+  example: |-
+    <UpdateVariable>
+        //时间推进2小时
+        _.set('MC.系统.当前时间.时间', '09:30', '11:30');
+        //地点转移到会议室
+        _.set('MC.系统.当前地点', '第七处·综合管理科办公室', '第七处·大会议室');
+        //玩家职位晋升
+        _.set('MC.玩家.职位', '科员', '主任科员');
+        //创建新角色（注意路径在entries下）
+        _.assign('MC.花名册.entries', 'No004', { "$meta": { "extensible": true }, "id": "No004", "name": "AAA", "gender": "女", "age": 22, "department": "技术支援科", "position": "技术员", "rank": "科员", "yearsOfService": 1, "height": "165cm", "weight": "50kg", "measurements": "88-58-88 (cm)", "bustRating": "C级（G杯）", "faceScore": 86, "personality": ["活泼", "好奇心强"], "rating": "B级", "notes": "" });
+        //更新已存在人员的单个字段
+        _.set('MC.花名册.entries.No001.notes', '行动一科负责人，业务能力出众。', '行动一科负责人，今日主持了部门会议。');
+        //为已存在人员添加新字段（必须覆盖整个条目）
+        _.assign('MC.花名册.entries', 'No001', { "$meta": { "extensible": true }, "id": "No001", "name": "沈凌汐", "gender": "女", "age": 27, "department": "行动一科", "position": "科长", "rank": "管理层", "yearsOfService": 5, "height": "172cm", "weight": "58kg", "measurements": "98-60-96 (cm)", "bustRating": "A级（I杯）", "faceScore": 92, "personality": ["严厉", "一丝不苟"], "rating": "S级", "notes": "行动一科负责人，今日主持了部门会议。", "specialSkill": "格斗技巧" });
+        //添加新文档（递归自相似结构，章节直接作为key嵌套）
+        _.assign('MC.文档', '培训手册', { "$meta": { "extensible": true }, "title": "新员工培训手册", "description": "新员工入职培训指南" });
+        //为文档添加章（直接以中文层级key嵌套）
+        _.assign('MC.文档.培训手册', '第一章 入职须知', { "$meta": { "extensible": true }, "第一节 报到流程": { "$meta": { "extensible": true }, "第一条": "新员工须于入职当日携带相关证件到综合管理科报到。", "第二条": { "_t": "报到时须提交以下材料：", "_s": { "$meta": { "extensible": true }, "一": "身份证原件及复印件。", "二": "学历证书原件及复印件。", "三": "近期免冠照片两张。" } } } });
+        //为已有条款添加新的子节点
+        _.assign('MC.文档.员工守则.第二章 日常行为规范.第一节 考勤管理.第七条._s.三._s', '3', { "_t": "当月累计旷工三次及以上，取消当月全部绩效奖金，并报综合管理科备案。", "_s": { "$meta": { "extensible": true }, "a": "其中涉及外勤人员的，另报行动科备案。", "b": "涉及管理层的，须报处长审批。" } });
+        //修改文档中叶子节点的内容（叶子是字符串，直接set）
+        _.set('MC.文档.员工守则.第二章 日常行为规范.第一节 考勤管理.第七条._s.一', '迟到15分钟以内，记口头警告一次。', '迟到10分钟以内，记口头警告一次。');
+        //修改文档中分支节点的正文（修改_t）
+        _.set('MC.文档.员工守则.第二章 日常行为规范.第一节 考勤管理.第七条._t', '关于迟到与早退的处理规定：', '关于迟到、早退及旷工的处理规定：');
+        //添加申请记录
+        _.assign('MC.申请记录.物资申请', 'APP20240316001', '【物资领用申请】申请人：<user>（行动一科）| 日期：2024-03-16 | 类别：电子设备 | 物资：U盘×2个 | 理由：数据传输需要 | 状态：待审批');
+    </UpdateVariable>
+</变量更新规则>
+
+
+<description>
+# 变量结构总览
+
+MClite 使用嵌套的 JSON 对象结构存储所有游戏数据。所有变量存储在 `MC` 根对象下，包含以下主要分支：
+- `MC.系统`: 游戏系统状态（时间、地点等）
+- `MC.玩家`: 玩家角色信息
+- `MC.花名册`: 人员档案数据（含内联Schema）
+- `MC.文档`: 规章制度与表单定义文档（递归自相似节点结构）
+- `MC.申请记录`: 表单提交的申请记录
+
+---
+
+# 一、系统变量
+路径: `MC.系统`
+
+| 字段 | 类型 | 说明 | 示例 |
+|------|------|------|------|
+| 当前地点 | string | 当前场景位置 | "第七处·综合管理科办公室" |
+| 当前时间.日期 | string | 日期，格式"YYYY年M月D日" | "2024年3月15日" |
+| 当前时间.时间 | string | 24小时制时间"HH:MM" | "09:30" |
+
+**示例结构:**
+```json
+{
+  "$meta": { "extensible": true },
+  "当前地点": "第七处·综合管理科办公室",
+  "当前时间": {
+    "$meta": { "extensible": true },
+    "日期": "2024年3月15日",
+    "时间": "09:30"
+  }
+}
+```
+
+---
+
+# 二、玩家变量
+路径: `MC.玩家`
+
+| 字段 | 类型 | 说明 | 示例 |
+|------|------|------|------|
+| 姓名 | string | 玩家角色姓名（使用<user>代指） | "<user>" |
+| 年龄 | number | 玩家角色年龄 | 21 |
+| 职位 | string | 职位名称 | "科员" |
+| 部门 | string | 所属部门 | "行动一科" |
+
+**示例结构:**
+```json
+{
+  "$meta": { "extensible": true },
+  "姓名": "<user>",
+  "年龄": 21,
+  "职位": "科员",
+  "部门": "行动一科"
+}
+```
+
+---
+
+# 三、花名册（含内联Schema）
+路径: `MC.花名册`
+
+## 3.1 结构特点
+- **内联$schema**: Schema直接定义在花名册对象中，无需引用外部文档
+- **entries容器**: 所有人员条目存放在 `entries` 对象下
+- **$schema.fields**: 键值对映射，key为英文字段ID，value为中文显示名称
+- 每个条目使用 `$meta: { extensible: true }` 标记可扩展
+
+## 3.2 $schema 结构
+
+```json
+"$schema": {
+  "primaryKey": "id",           // 主键字段名
+  "displayField": "name",       // 列表显示字段名
+  "groupByField": "department", // 分组字段名（可选）
+  "fields": {                   // 字段ID → 中文名称映射
+    "id": "员工编号",
+    "name": "姓名",
+    "gender": "性别",
+    "age": "年龄",
+    "department": "所属部门",
+    "position": "职务",
+    "rank": "职级",
+    ...
+  }
+}
+```
+
+## 3.3 完整结构示例
+
+```json
+{
+  "$meta": { "extensible": true },
+  "$schema": {
+    "primaryKey": "id",
+    "displayField": "name",
+    "groupByField": "department",
+    "fields": {
+      "id": "员工编号",
+      "name": "姓名",
+      "gender": "性别",
+      "age": "年龄",
+      "department": "所属部门",
+      "position": "职务",
+      "rank": "职级",
+      "yearsOfService": "入职年限",
+      "height": "身高",
+      "weight": "体重",
+      "measurements": "三围",
+      "bustRating": "胸部评级",
+      "faceScore": "面容评分",
+      "personality": "性格特征",
+      "rating": "综合评级",
+      "notes": "备注"
+    }
+  },
+  "entries": {
+    "$meta": { "extensible": true },
+    "No001": {
+      "$meta": { "extensible": true },
+      "id": "No001",
+      "name": "沈凌汐",
+      "gender": "女",
+      "age": 27,
+      "department": "行动一科",
+      "position": "科长",
+      "rank": "管理层",
+      "yearsOfService": 5,
+      "height": "172cm",
+      "weight": "58kg",
+      "measurements": "98-60-96 (cm)",
+      "bustRating": "A级（I杯）",
+      "faceScore": 92,
+      "personality": ["严厉", "一丝不苟", "程序至上"],
+      "rating": "S级",
+      "notes": "行动一科负责人，业务能力出众。"
+    }
+  }
+}
+```
+
+## 3.4 标准字段说明
+
+| 字段ID | 类型 | 说明 |
+|--------|------|------|
+| id | string | 员工编号（NoXXX格式） |
+| name | string | 姓名 |
+| gender | string | 性别（女/男） |
+| age | number | 年龄 |
+| department | string | 所属部门 |
+| position | string | 职务 |
+| rank | string | 职级（管理层/主任科员/科员/实习生） |
+| yearsOfService | number | 入职年限 |
+| height | string | 身高（如172cm） |
+| weight | string | 体重（如58kg） |
+| measurements | string | 三围（如98-60-96 cm） |
+| bustRating | string | 胸部评级 |
+| faceScore | number | 面容评分（百分制） |
+| personality | array | 性格特征标签数组 |
+| rating | string | 综合评级（S/A/B/C级） |
+| notes | string | 备注信息 |
+
+## 3.5 重要规则
+
+1. **键名禁止包含点号**: 点号(.)是路径分隔符，`No.001`错误，应使用`No001`
+2. **创建完整条目**: 添加新人员时必须使用 `_.assign('MC.花名册.entries', 'NoXXX', {...})` 一次性创建
+3. **必须包含$meta**: 每个条目应包含 `"$meta": { "extensible": true }`
+4. **字段参照$schema.fields**: 字段应参照花名册内联的 `$schema.fields` 中定义的字段
+
+---
+
+# 四、文档（递归自相似节点结构）
+路径: `MC.文档`
+
+文档容器用于存储：
+1. **纯文本规章制度**（如员工守则）- 提供叙事内容
+2. **表单定义文档**（如物资申请管理办法）- 定义表单字段和工作流
+
+## 4.1 核心设计：递归自相似节点
+
+文档采用**递归自相似**的统一节点类型，每一层的格式完全一致，可无限嵌套。
+
+### 4.1.1 节点类型定义
+
+每个节点只有两种形态：
+
+| 形态 | 结构 | 说明 |
+|------|------|------|
+| **叶子节点** | `"编号key": "文本内容"` | 纯字符串，无子节点 |
+| **分支节点** | `"编号key": { "_t": "正文", "_s": { "$meta": { "extensible": true }, ... } }` | `_t`=本级正文，`_s`=子节点对象集合 |
+
+- `_t` (text): 可选，该节点的正文内容
+- `_s` (sub): 可选，子节点集合对象，key为该层的编号/标题
+- `_s` **始终为对象**（不是数组），key就是编号
+- `_s` 中每个值又是同样的节点类型（字符串或 `{_t, _s}` 对象），可继续无限嵌套
+- **【极其重要】`_s` 对象内部必须携带 `"$meta": { "extensible": true }` 可拓展标签**，否则 AI 会将其视为封闭结构，拒绝新增同级键。同理，所有章级、节级等中间对象层级也必须携带此标签。遗漏此标签是致命错误。
+
+### 4.1.2 层级编号体系
+
+编号由层级深度决定，各层key的命名约定：
+
+| 层级 | 编号体系 | key示例 |
+|------|---------|---------|
+| 章 | "第X章 标题" | `"第一章 总则"` |
+| 节 | "第X节 标题" | `"第一节 机构概述"` |
+| 条 | "第X条" | `"第一条"`, `"第七条"` |
+| 款 | 中文数字 | `"一"`, `"二"`, `"三"` |
+| 项 | 阿拉伯数字 | `"1"`, `"2"`, `"3"` |
+| 目 | 小写字母 | `"a"`, `"b"`, `"c"` |
+| 更深层级 | 可继续自定义 | 罗马数字等 |
+
+> 注意：章 > 节 > 条 > 款 > 项 > 目 的层级关系并非强制完整出现，可以根据文档需要跳过某些层级。例如一个简单文档可能只有 条 > 款 两层。
+
+### 4.1.3 纯文本文档结构示例
+
+> **【关键提醒】** 注意观察下方示例：每一个对象层级（章、节、`_s` 子节点容器）都携带了 `"$meta": { "extensible": true }` 可拓展标签。这不是可选的，这是**强制要求**。遗漏任何一层的 `$meta` 都会导致 AI 将该层视为封闭结构，从而无法在其中动态新增同级键。
+
+```json
+{
+  "员工守则": {
+    "$meta": { "extensible": true },
+    "title": "国家特别事务管理局第七执行处员工守则",
+    "description": "本守则为第七处全体在编人员行为规范之根本依据",
+
+    "第一章 总则": {
+      "$meta": { "extensible": true },
+
+      "第一节 机构概述": {
+        "$meta": { "extensible": true },
+
+        "第一条": "本处全称为「国家特别事务管理局第七执行处」...",
+        "第二条": "本守则适用于本处全体在编人员...",
+        "第三条": {
+          "_t": "本处工作遵循以下基本原则：",
+          "_s": {
+            "$meta": { "extensible": true },
+            "一": "忠诚原则：全体人员须对国家和组织保持绝对忠诚...",
+            "二": "保密原则：本处一切工作内容均属机密...",
+            "三": "服从原则：下级须服从上级的工作安排和指令...",
+            "四": "协作原则：各科室之间应加强沟通与协作..."
+          }
+        }
+      }
+    },
+
+    "第二章 日常行为规范": {
+      "$meta": { "extensible": true },
+
+      "第一节 考勤管理": {
+        "$meta": { "extensible": true },
+
+        "第七条": {
+          "_t": "关于迟到与早退的处理规定：",
+          "_s": {
+            "$meta": { "extensible": true },
+            "一": "迟到15分钟以内，记口头警告一次。",
+            "二": "迟到15分钟至30分钟，记书面警告一次。",
+            "三": {
+              "_t": "迟到30分钟以上视为旷工半日，按以下细则处理：",
+              "_s": {
+                "$meta": { "extensible": true },
+                "1": "当月首次旷工，扣除当日绩效奖金。",
+                "2": "当月累计旷工两次，扣除当月绩效奖金的50%。",
+                "3": {
+                  "_t": "当月累计旷工三次及以上，取消当月全部绩效奖金，并报综合管理科备案。",
+                  "_s": {
+                    "$meta": { "extensible": true },
+                    "a": "其中涉及外勤人员的，另报行动科备案。",
+                    "b": "涉及管理层的，须报处长审批。"
+                  }
+                }
+              }
+            },
+            "四": "因执行任务导致的迟到不计入考勤记录..."
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+### 4.1.4 路径寻址规则
+
+由于取消了 `sections`/`children` 等中间层，路径直接按层级key逐级拼接：
+
+| 目标 | 路径格式 | 示例 |
+|------|---------|------|
+| 叶子条款 | `MC.文档.文档名.章key.节key.条key` | `MC.文档.员工守则.第一章 总则.第一节 机构概述.第一条` |
+| 分支条款正文 | `MC.文档.文档名.章key.节key.条key._t` | `MC.文档.员工守则.第二章 日常行为规范.第一节 考勤管理.第七条._t` |
+| 款级叶子 | `MC.文档.文档名.章key.节key.条key._s.款key` | `MC.文档.员工守则.第二章 日常行为规范.第一节 考勤管理.第七条._s.一` |
+| 款级分支正文 | `...条key._s.款key._t` | `...第七条._s.三._t` |
+| 项级叶子 | `...条key._s.款key._s.项key` | `...第七条._s.三._s.1` |
+| 项级分支正文 | `...条key._s.款key._s.项key._t` | `...第七条._s.三._s.3._t` |
+| 目级叶子 | `...项key._s.目key` | `...第七条._s.三._s.3._s.a` |
+| 文档元数据 | `MC.文档.文档名.title` | `MC.文档.员工守则.title` |
+
+## 4.2 表单定义文档结构
+
+表单定义文档在递归自相似结构基础上，额外使用 `$formMeta` 声明表单元数据，使用 `$fieldDef` 定义各字段。
+
+### 4.2.1 $formMeta - 表单元数据
+**位置**: 文档根级别
+
+```json
+"$formMeta": {
+  "formName": "物资领用申请表",              // 表单显示名称
+  "description": "用于申请领用办公物资、装备等", // 表单描述
+  "targetPath": "MC.申请记录.物资申请",       // 申请记录存储路径
+  "workflow": [                               // 审批流程
+    { "step": 1, "name": "填写申请", "handler": "申请人" },
+    { "step": 2, "name": "直属上级审批", "handler": "直属上级", "canReject": true },
+    { "step": 3, "name": "综合管理科审核", "handler": "综合管理科", "canReject": true },
+    { "step": 4, "name": "物资发放", "handler": "后勤组" }
+  ],
+  "validDays": 30                             // 可选：有效期天数
+}
+```
+
+### 4.2.2 $fieldDef - 表单字段定义
+**位置**: 嵌入在各条款节点中（与 `_t`, `_s` 并列）
+**形式**: 可以是单个对象，也可以是数组（多个字段）
+
+**带$fieldDef的分支节点示例:**
+```json
+"第七条": {
+  "_t": "须填写数量并说明理由：",
+  "_s": {
+    "$meta": { "extensible": true },
+    "一": {
+      "_t": "申请数量须如实填写，不得虚报。",
+      "$fieldDef": { "label": "申请数量", "inputType": "number", "required": true, "min": 1, "max": 100, "defaultValue": 1 }
+    },
+    "二": {
+      "_t": "须简要说明申请该物资的用途及必要性。",
+      "$fieldDef": { "label": "申请理由", "inputType": "text", "required": true, "maxLength": 200 }
+    }
+  }
+}
+```
+
+**带$fieldDef的叶子节点不存在**（叶子是纯字符串，无法附加属性）。若需要给叶子加 `$fieldDef`，须将其提升为分支节点：
+```json
+// 错误：叶子节点无法附加 $fieldDef
+"第五条": "申请物资应按类别进行分类选择。"
+
+// 正确：提升为带 _t 的分支节点
+"第五条": {
+  "_t": "申请物资应按类别进行分类选择。",
+  "$fieldDef": {
+    "label": "物资类别",
+    "inputType": "select",
+    "required": true,
+    "options": ["办公用品", "电子设备", "工作装备", "特殊物资"]
+  }
+}
+```
+
+**多字段示例（$fieldDef为数组）:**
+```json
+"第三条": {
+  "_t": "申请人须如实填写个人基本信息。",
+  "$fieldDef": [
+    { "label": "申请人姓名", "inputType": "readonly", "source": "MC.玩家.姓名" },
+    { "label": "所属部门", "inputType": "readonly", "source": "MC.玩家.部门" }
+  ]
+}
+```
+
+### 4.2.3 表单字段类型（inputType）
+
+| inputType | 说明 | 特殊属性 |
+|-----------|------|----------|
+| text | 单行文本输入 | maxLength, placeholder |
+| textarea | 多行文本输入 | minLength, maxLength, placeholder |
+| number | 数字输入 | min, max, defaultValue |
+| date | 日期选择 | defaultValue (支持 `{{currentDate}}`) |
+| datetime | 日期时间选择 | - |
+| select | 下拉选择 | options, sourceType, sourcePath, displayField, multiple |
+| radio | 单选按钮 | options (支持字符串数组或 `{value, label}` 对象数组) |
+| checkbox | 复选框 | checkboxLabel, mustBeTrue |
+| readonly | 只读显示 | source (变量路径) |
+| table | 动态表格 | columns, minRows, maxRows, helpText |
+
+### 4.2.4 表单字段完整属性列表
+
+| 属性 | 类型 | 说明 |
+|------|------|------|
+| fieldId | string | 字段唯一标识（用于条件引用） |
+| label | string | 显示标签 |
+| inputType | string | 控件类型 |
+| required | boolean | 是否必填 |
+| defaultValue | any | 默认值（支持模板变量如`{{currentDate}}`） |
+| source | string | 数据来源路径（readonly类型） |
+| sourceType | string | 数据源类型，如 `"roster"` |
+| sourcePath | string | 数据源路径（如 `"MC.花名册"`） |
+| displayField | string | 显示字段名（用于花名册选择） |
+| multiple | boolean | 是否多选（select类型） |
+| options | array | 选项列表（字符串数组或`{value, label}`对象数组） |
+| placeholder | string | 占位提示 |
+| helpText | string | 帮助文本 |
+| minLength | number | 最小长度 |
+| maxLength | number | 最大长度 |
+| min | number | 最小值 |
+| max | number | 最大值 |
+| checkboxLabel | string | 复选框标签文本 |
+| mustBeTrue | boolean | 是否必须勾选 |
+| showWhen | object | 条件显示规则 |
+| conditionalRequired | object | 条件必填规则 |
+
+### 4.2.5 table类型列定义
+
+```json
+{
+  "fieldId": "itinerary",
+  "label": "行程安排表",
+  "inputType": "table",
+  "required": true,
+  "minRows": 1,
+  "maxRows": 15,
+  "columns": [
+    { "columnId": "date", "label": "日期", "type": "date", "width": "120px", "required": true },
+    { "columnId": "location", "label": "所在地点", "type": "text", "width": "150px", "required": true },
+    { "columnId": "transport", "label": "交通方式", "type": "select", "width": "100px", "options": ["飞机", "高铁", "汽车"] }
+  ],
+  "helpText": "请按日期逐日填写行程"
+}
+```
+
+### 4.2.6 条件规则
+
+**条件显示 (showWhen):**
+```json
+"showWhen": {
+  "field": "trip_type",
+  "equals": "mission"
+}
+```
+
+**条件必填 (conditionalRequired):**
+```json
+"conditionalRequired": {
+  "when": { "field": "trip_type", "equals": "other" },
+  "required": true,
+  "minLength": 50
+}
+```
+
+### 4.2.7 表单文档完整示例
+
+```json
+{
+  "物资申请管理办法": {
+    "$meta": { "extensible": true },
+    "title": "物资申请管理办法",
+    "description": "第七处物资领用申请流程规定",
+
+    "$formMeta": {
+      "formName": "物资领用申请表",
+      "description": "用于申请领用办公物资、装备等",
+      "targetPath": "MC.申请记录.物资申请",
+      "workflow": [
+        { "step": 1, "name": "填写申请", "handler": "申请人" },
+        { "step": 2, "name": "直属上级审批", "handler": "直属上级", "canReject": true },
+        { "step": 3, "name": "综合管理科审核", "handler": "综合管理科", "canReject": true },
+        { "step": 4, "name": "物资发放", "handler": "后勤组" }
+      ]
+    },
+
+    "第一章 总则": {
+      "$meta": { "extensible": true },
+
+      "第一节 基本规定": {
+        "$meta": { "extensible": true },
+
+        "第一条": "本办法适用于本处全体在编人员申请领用办公物资...",
+        "第二条": {
+          "_t": "本处物资按以下类别管理：",
+          "_s": {
+            "$meta": { "extensible": true },
+            "一": "办公用品：笔、纸、文件夹等日常消耗品。",
+            "二": "电子设备：电脑、手机、通讯器材等。",
+            "三": "工作装备：防护装具、战术器材等。",
+            "四": "特殊物资：需特别审批的高价值或限制级物品。"
+          }
+        }
+      }
+    },
+
+    "第二章 申请表单": {
+      "$meta": { "extensible": true },
+
+      "第一节 申请人信息": {
+        "$meta": { "extensible": true },
+
+        "第三条": {
+          "_t": "申请人须如实填写个人基本信息。",
+          "$fieldDef": [
+            { "label": "申请人姓名", "inputType": "readonly", "source": "MC.玩家.姓名" },
+            { "label": "所属部门", "inputType": "readonly", "source": "MC.玩家.部门" }
+          ]
+        }
+      },
+
+      "第二节 物资详情": {
+        "$meta": { "extensible": true },
+
+        "第五条": {
+          "_t": "申请物资应按类别进行分类选择。",
+          "$fieldDef": {
+            "label": "物资类别",
+            "inputType": "select",
+            "required": true,
+            "options": ["办公用品", "电子设备", "工作装备", "特殊物资"]
+          }
+        },
+        "第七条": {
+          "_t": "须填写数量并说明理由：",
+          "_s": {
+            "$meta": { "extensible": true },
+            "一": {
+              "_t": "申请数量须如实填写，不得虚报。",
+              "$fieldDef": { "label": "申请数量", "inputType": "number", "required": true, "min": 1, "max": 100, "defaultValue": 1 }
+            },
+            "二": {
+              "_t": "须简要说明申请该物资的用途及必要性。",
+              "$fieldDef": { "label": "申请理由", "inputType": "text", "required": true, "maxLength": 200 }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+---
+
+# 五、申请记录
+路径: `MC.申请记录`
+
+## 5.1 结构特点
+- 申请记录按表单类型分类存储
+- 申请记录以**摘要文本形式**存储，便于AI阅读理解
+- 键名格式：`APP` + 日期(YYYYMMDD) + 三位序号（如 `APP20240315001`）
+
+## 5.2 完整结构示例
+
+```json
+{
+  "$meta": { "extensible": true },
+  "物资申请": {
+    "$meta": { "extensible": true },
+    "APP20240315001": "【物资领用申请】申请人：<user>（行动一科）| 日期：2024-03-15 | 类别：办公用品 | 物资：签字笔×5盒 | 理由：日常办公使用 | 状态：审批中"
+  },
+  "个人需求": {
+    "$meta": { "extensible": true },
+    "APP20240312001": "【个人需求申请】申请人：<user>（行动一科）| 日期：2024-03-12 | 事项：申请与苏淼雨进行午休时间的亲密接触 | 涉及人员：苏淼雨 | 理由：增进同事感情 | 状态：已批准"
+  }
+}
+```
+
+## 5.3 申请记录摘要格式
+
+摘要文本格式：`【表单名称】申请人：xxx（部门）| 字段1：值1 | 字段2：值2 | ... | 状态：xxx`
+
+**状态值说明:**
+| 状态 | 说明 |
+|------|------|
+| 待审批 | 刚提交，等待第一个审批人处理 |
+| 审批中（待xxx审批） | 正在审批流程中，指明当前审批人 |
+| 已批准 | 审批通过 |
+| 已拒绝（xxx驳回） | 被某人驳回 |
+
+---
+
+# 六、可扩展性机制
+
+## 6.1 $meta.extensible —— 致命级重要标记
+所有带有 `"$meta": { "extensible": true }` 的对象都支持动态添加新键值对。
+
+**【致命级规则】** `$meta` 可拓展标签不是只在顶层模块加一次就够了。**每一个对象层级——根对象、模块（系统/玩家/花名册/文档/申请记录）、子容器（entries/当前时间）、文档中的章、节、`_s` 子节点容器——全部都必须携带 `"$meta": { "extensible": true }`**。遗漏任何一层的 `$meta` 都会导致 AI 判定该层级结构已封闭，从而拒绝在其中动态新增同级键。这是致命问题。
+
+需要标记 `$meta` 的位置清单：
+- 根对象 `MC`
+- 一级模块：`MC.系统`、`MC.玩家`、`MC.花名册`、`MC.文档`、`MC.申请记录`
+- 子容器：`MC.系统.当前时间`、`MC.花名册.entries`、各 `entries` 下的条目
+- 文档中每个文档对象（如 `MC.文档.员工守则`）
+- 文档中每个章级对象（如 `第一章 总则`）
+- 文档中每个节级对象（如 `第一节 机构概述`）
+- 文档中每个 `_s` 子节点容器
+- 申请记录中每个类别容器（如 `MC.申请记录.物资申请`）
+
+## 6.2 $schema（内联Schema）
+花名册使用内联 `$schema` 定义字段结构，包含：
+- `primaryKey`: 主键字段
+- `displayField`: 显示字段
+- `groupByField`: 分组字段
+- `fields`: 字段ID到中文名称的映射
+
+---
+
+# 七、变量操作指令速查表
+
+## 7.1 基础操作
+
+| 操作 | 指令 | 示例 |
+|------|------|------|
+| 设置值 | _.set(path, old?, new) | `_.set('MC.玩家.职位', '科员', '主任科员')` |
+| 数值增减 | _.add(path, delta) | `_.add('MC.玩家.年龄', 1)` |
+| 添加/创建 | _.assign(path, key, value) | `_.assign('MC.花名册.entries', 'No003', {...})` |
+| 删除 | _.remove(path, key?) | `_.remove('MC.申请记录.物资申请.APP001')` |
+
+## 7.2 常见场景操作示例
+
+**1. 时间推进:**
+```javascript
+_.set('MC.系统.当前时间.时间', '09:30', '11:30');
+```
+
+**2. 地点转移:**
+```javascript
+_.set('MC.系统.当前地点', '第七处·综合管理科办公室', '第七处·大会议室');
+```
+
+**3. 添加新人员（完整）:**
+```javascript
+_.assign('MC.花名册.entries', 'No003', {
+  "$meta": { "extensible": true },
+  "id": "No003",
+  "name": "新人姓名",
+  "gender": "女",
+  "age": 22,
+  "department": "部门",
+  "position": "职位",
+  "rank": "科员",
+  "yearsOfService": 1,
+  "height": "165cm",
+  "weight": "50kg",
+  "measurements": "90-58-88 (cm)",
+  "bustRating": "C级（G杯）",
+  "faceScore": 85,
+  "personality": ["性格1", "性格2"],
+  "rating": "B级",
+  "notes": ""
+});
+```
+
+**4. 修改人员单个字段:**
+```javascript
+_.set('MC.花名册.entries.No001.notes', '旧备注', '新备注');
+```
+
+**5. 添加申请记录:**
+```javascript
+_.assign('MC.申请记录.物资申请', 'APP20240316001',
+  '【物资领用申请】申请人：<user>（行动一科）| 日期：2024-03-16 | 类别：办公用品 | 物资：订书机×1个 | 理由：办公使用 | 状态：待审批');
+```
+
+**6. 更新申请状态:**
+```javascript
+_.set('MC.申请记录.物资申请.APP20240316001',
+  '...状态：待审批',
+  '...状态：已批准');
+```
+
+**7. 添加新文档（递归自相似结构）:**
+```javascript
+_.assign('MC.文档', '培训手册', {
+  "$meta": { "extensible": true },
+  "title": "新员工培训手册",
+  "description": "新员工入职培训指南"
+});
+```
+
+**8. 为文档添加章（直接以层级key嵌套）:**
+```javascript
+_.assign('MC.文档.培训手册', '第一章 入职须知', {
+  "$meta": { "extensible": true },
+  "第一节 报到流程": {
+    "$meta": { "extensible": true },
+    "第一条": "新员工须于入职当日携带相关证件到综合管理科报到。",
+    "第二条": {
+      "_t": "报到时须提交以下材料：",
+      "_s": {
+        "$meta": { "extensible": true },
+        "一": "身份证原件及复印件。",
+        "二": "学历证书原件及复印件。",
+        "三": "近期免冠照片两张。"
+      }
+    }
+  }
+});
+```
+
+**9. 修改文档叶子节点（字符串直接set）:**
+```javascript
+_.set('MC.文档.员工守则.第二章 日常行为规范.第一节 考勤管理.第七条._s.一',
+  '迟到15分钟以内，记口头警告一次。',
+  '迟到10分钟以内，记口头警告一次。');
+```
+
+**10. 修改文档分支节点正文（set _t）:**
+```javascript
+_.set('MC.文档.员工守则.第二章 日常行为规范.第一节 考勤管理.第七条._t',
+  '关于迟到与早退的处理规定：',
+  '关于迟到、早退及旷工的处理规定：');
+```
+
+**11. 为已有条款添加新子节点（嵌套_s）:**
+```javascript
+_.assign('MC.文档.员工守则.第二章 日常行为规范.第一节 考勤管理.第七条._s.三._s', '3', {
+  "_t": "当月累计旷工三次及以上，取消全部绩效奖金，并报综合管理科备案。",
+  "_s": {
+    "$meta": { "extensible": true },
+    "a": "其中涉及外勤人员的，另报行动科备案。",
+    "b": "涉及管理层的，须报处长审批。"
+  }
+});
+```
+
+**12. 将叶子节点升级为分支节点（先remove再assign）:**
+```javascript
+//原来"三"是纯字符串叶子，现在需要添加子节点，须先删除再重新创建为分支节点
+_.remove('MC.文档.员工守则.第一章 总则.第一节 机构概述.第三条._s', '三');
+_.assign('MC.文档.员工守则.第一章 总则.第一节 机构概述.第三条._s', '三', {
+  "_t": "服从原则：下级须服从上级的工作安排和指令，特殊情况可按程序申诉。",
+  "_s": {
+    "$meta": { "extensible": true },
+    "1": "申诉须在接到指令后24小时内提交书面材料。",
+    "2": "申诉期间原指令继续执行。"
+  }
+});
+```
+
+---
+
+# 八、注意事项与最佳实践
+
+1. **路径准确性**: 花名册条目路径必须经过 `entries` 层，如 `MC.花名册.entries.No001.name`
+2. **键名规范**: 键名不能包含点号，建议使用驼峰或下划线命名
+3. **完整创建**: 创建新条目时务必包含所有 `$schema.fields` 中定义的字段
+4. **$meta标记（致命级重要）**: 新建的可扩展对象要加入 `$meta: { extensible: true }`。**不仅是顶层模块，每一个对象层级——章、节、`_s` 子节点容器、子对象等——都必须携带此标签**。遗漏将导致AI无法在该层级动态新增键。
+5. **类型一致**: 注意字段类型，number用数字，string用引号，array用方括号
+6. **中文批注**: 使用简体中文作为 `//批注` 的输出语言
+7. **非必要不删除**: 优先使用 `_.set` 修改，避免随意使用 `_.remove` 删除数据
+8. **先创建后修改**: 对不存在的条目，必须先用 `_.assign` 创建完整条目，再用 `_.set` 修改单个字段
+9. **申请记录格式**: 申请记录使用摘要文本形式存储，遵循 `【表单名称】申请人：xxx（部门）| 字段：值 | 状态：xxx` 格式
+10. **文档递归结构**: 文档使用递归自相似 `_t` + `_s` 节点结构，不再使用 `sections`/`children`/`title`/`content`/`order` 等中间层属性
+11. **叶子与分支的区分**: 叶子节点是纯字符串，分支节点是 `{ _t, _s }` 对象。若需给叶子添加子节点，须先将其转换为分支节点
+12. **_s始终为对象**: `_s` 是子节点集合，始终为对象类型（不是数组），key为编号
+13. **$fieldDef与_t并列**: 表单文档中的 `$fieldDef` 与 `_t`、`_s` 并列放置在同一对象层级，仅分支节点可附加
+14. **_s必须携带$meta**: 每个 `_s` 对象内部必须包含 `"$meta": { "extensible": true }`，章级对象和节级对象同理。**创建新文档节点时如果遗漏了任何一层的 $meta，该层级就会变成封闭结构，AI将无法在其中追加新键**
+</description>

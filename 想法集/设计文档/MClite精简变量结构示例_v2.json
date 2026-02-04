@@ -1,0 +1,683 @@
+{
+  "$meta": {
+    "extensible": true,
+    "version": "8.0",
+    "description": "MClite 精简变量结构 v8.0 - 递归自相似节点设计。【核心规则】每一个对象层级——无论是顶层模块、章、节、还是 _s 子节点容器——都必须携带 \"$meta\": { \"extensible\": true } 可拓展标签。遗漏此标签将导致 AI 判定该层级结构已封闭，从而拒绝在其中动态新增同级键，这是致命问题。层级体系：章>节>条>款(一二三…)>项(123…)>目(abc…)，可无限嵌套。每个节点要么是字符串（叶子），要么是 {_t, _s} 对象（_t=正文, _s=子节点对象，key为编号）。_s 始终为对象而非数组，且 _s 本身也必须携带 $meta 可拓展标签。"
+  },
+  "MC": {
+    "$meta": { "extensible": true },
+
+    "系统": {
+      "$meta": { "extensible": true },
+      "当前地点": "第七处·综合管理科办公室",
+      "当前时间": {
+        "$meta": { "extensible": true },
+        "日期": "2024年3月15日",
+        "时间": "09:30"
+      }
+    },
+
+    "玩家": {
+      "$meta": { "extensible": true },
+      "姓名": "<user>",
+      "年龄": 21,
+      "职位": "科员",
+      "部门": "行动一科"
+    },
+
+    "花名册": {
+      "$meta": { "extensible": true },
+
+      "$schema": {
+        "primaryKey": "id",
+        "displayField": "name",
+        "groupByField": "department",
+        "fields": {
+          "id": "员工编号",
+          "name": "姓名",
+          "gender": "性别",
+          "age": "年龄",
+          "department": "所属部门",
+          "position": "职务",
+          "rank": "职级",
+          "yearsOfService": "入职年限",
+          "height": "身高",
+          "weight": "体重",
+          "measurements": "三围",
+          "bustRating": "胸部评级",
+          "faceScore": "面容评分",
+          "personality": "性格特征",
+          "rating": "综合评级",
+          "notes": "备注"
+        }
+      },
+
+      "entries": {
+        "$meta": { "extensible": true },
+        "No001": {
+          "$meta": { "extensible": true },
+          "id": "No001",
+          "name": "沈凌汐",
+          "gender": "女",
+          "age": 27,
+          "department": "行动一科",
+          "position": "科长",
+          "rank": "管理层",
+          "yearsOfService": 5,
+          "height": "172cm",
+          "weight": "58kg",
+          "measurements": "98-60-96 (cm)",
+          "bustRating": "A级（I杯）",
+          "faceScore": 92,
+          "personality": ["严厉", "一丝不苟", "程序至上"],
+          "rating": "S级",
+          "notes": "行动一科负责人，业务能力出众。"
+        },
+        "No002": {
+          "$meta": { "extensible": true },
+          "id": "No002",
+          "name": "苏淼雨",
+          "gender": "女",
+          "age": 23,
+          "department": "综合管理科",
+          "position": "文员",
+          "rank": "科员",
+          "yearsOfService": 2,
+          "height": "162cm",
+          "weight": "52kg",
+          "measurements": "92-58-90 (cm)",
+          "bustRating": "B级（H杯）",
+          "faceScore": 88,
+          "personality": ["温柔", "内向", "细心"],
+          "rating": "A级",
+          "notes": "综合管理科文员，负责文件整理和来访接待。"
+        }
+      }
+    },
+
+    "文档": {
+      "$meta": { "extensible": true },
+
+      "员工守则": {
+        "$meta": { "extensible": true },
+        "title": "国家特别事务管理局第七执行处员工守则",
+        "description": "本守则为第七处全体在编人员行为规范之根本依据",
+
+        "第一章 总则": {
+          "$meta": { "extensible": true },
+
+          "第一节 机构概述": {
+            "$meta": { "extensible": true },
+
+            "第一条": "本处全称为「国家特别事务管理局第七执行处」，隶属于国家安全系统，负责特殊事务的调查、处置及管理工作。",
+            "第二条": "本守则适用于本处全体在编人员，包括管理层、主任科员、科员及实习生。",
+            "第三条": {
+              "_t": "本处工作遵循以下基本原则：",
+              "_s": {
+                "$meta": { "extensible": true },
+                "一": "忠诚原则：全体人员须对国家和组织保持绝对忠诚，不得从事任何损害国家利益的行为。",
+                "二": "保密原则：本处一切工作内容均属机密，未经授权不得向任何外部人员透露。",
+                "三": "服从原则：下级须服从上级的工作安排和指令，特殊情况可按程序申诉。",
+                "四": "协作原则：各科室之间应加强沟通与协作，共同完成工作任务。"
+              }
+            }
+          },
+
+          "第二节 组织架构": {
+            "$meta": { "extensible": true },
+
+            "第四条": {
+              "_t": "本处下设以下部门：",
+              "_s": {
+                "$meta": { "extensible": true },
+                "一": "行动一科：负责外勤任务执行、目标追踪与现场处置。",
+                "二": "行动二科：负责情报收集、分析研判与技术支援。",
+                "三": "综合管理科：负责日常行政事务、人事管理与后勤保障。",
+                "四": "财务科：负责经费管理、预算编制与财务审计。"
+              }
+            },
+            "第五条": "本处职级分为四级：管理层、主任科员、科员、实习生。各级人员的权限与职责详见相关细则。"
+          }
+        },
+
+        "第二章 日常行为规范": {
+          "$meta": { "extensible": true },
+
+          "第一节 考勤管理": {
+            "$meta": { "extensible": true },
+
+            "第六条": {
+              "_t": "本处标准工作时间如下：",
+              "_s": {
+                "$meta": { "extensible": true },
+                "一": "上午工作时间：08:30 至 12:00。",
+                "二": "午休时间：12:00 至 13:30。",
+                "三": "下午工作时间：13:30 至 18:00。",
+                "四": "特殊任务期间的工作时间由直属上级另行安排。"
+              }
+            },
+            "第七条": {
+              "_t": "关于迟到与早退的处理规定：",
+              "_s": {
+                "$meta": { "extensible": true },
+                "一": "迟到15分钟以内，记口头警告一次。",
+                "二": "迟到15分钟至30分钟，记书面警告一次。",
+                "三": {
+                  "_t": "迟到30分钟以上视为旷工半日，按以下细则处理：",
+                  "_s": {
+                    "$meta": { "extensible": true },
+                    "1": "当月首次旷工，扣除当日绩效奖金。",
+                    "2": "当月累计旷工两次，扣除当月绩效奖金的50%。",
+                    "3": "当月累计旷工三次及以上，取消当月全部绩效奖金，并报综合管理科备案。"
+                  }
+                },
+                "四": "因执行任务导致的迟到不计入考勤记录，但须事后补交任务证明。"
+              }
+            },
+            "第八条": {
+              "_t": "请假须按以下规定办理：",
+              "_s": {
+                "$meta": { "extensible": true },
+                "一": "事假：须提前一个工作日提交书面申请，经直属上级审批后报综合管理科备案。",
+                "二": "病假：须提供医疗机构出具的诊断证明。紧急情况可先电话报备，三日内补齐手续。",
+                "三": {
+                  "_t": "年假：按入职年限享有相应年假天数：",
+                  "_s": {
+                    "$meta": { "extensible": true },
+                    "1": "入职满1年不满3年：5个工作日。",
+                    "2": "入职满3年不满5年：7个工作日。",
+                    "3": "入职满5年以上：10个工作日。"
+                  }
+                }
+              }
+            }
+          },
+
+          "第二节 着装规范": {
+            "$meta": { "extensible": true },
+
+            "第九条": {
+              "_t": "在编人员日常着装须符合以下要求：",
+              "_s": {
+                "$meta": { "extensible": true },
+                "一": "工作时间内须穿着统一配发的工作制服或符合规定的正装。",
+                "二": "制服须保持整洁、平整，不得有明显污渍或破损。",
+                "三": "工作证件须佩戴在左胸口袋上方显著位置。"
+              }
+            },
+            "第十条": {
+              "_t": "以下特殊场合的着装另有规定：",
+              "_s": {
+                "$meta": { "extensible": true },
+                "一": "外勤任务：按任务要求穿着战术装备或便装，由任务指挥官指定。",
+                "二": "重要会议及接待：须穿着正式礼服或一级制服。",
+                "三": "体能训练：须穿着统一配发的训练服。"
+              }
+            }
+          }
+        },
+
+        "第三章 特殊事务管理": {
+          "$meta": { "extensible": true },
+
+          "第一节 个人需求申请": {
+            "$meta": { "extensible": true },
+
+            "第十一条": {
+              "_t": "本处人员因个人需求，需与特定同事进行以下类型活动的，须提前提交书面申请：",
+              "_s": {
+                "$meta": { "extensible": true },
+                "一": "亲密接触类活动。",
+                "二": "特殊服务类活动。",
+                "三": "其他需要涉及他人配合的个人需求事项。"
+              }
+            },
+            "第十二条": {
+              "_t": "个人需求申请须按以下流程办理：",
+              "_s": {
+                "$meta": { "extensible": true },
+                "一": "填写《个人需求申请表》，明确申请事项、涉及人员、预计时间地点。",
+                "二": "提交直属上级审批。",
+                "三": "经被申请人确认同意。",
+                "四": "报综合管理科备案后方可执行。"
+              }
+            },
+            "第十三条": {
+              "_t": "关于个人需求申请的特别规定：",
+              "_s": {
+                "$meta": { "extensible": true },
+                "一": "活动须在指定场所进行，不得影响正常工作秩序。",
+                "二": "被申请人有权拒绝任何申请，任何人不得以任何方式施压或报复。",
+                "三": {
+                  "_t": "违反本条规定的，按以下细则处理：",
+                  "_s": {
+                    "$meta": { "extensible": true },
+                    "1": "未经申请擅自进行的，记严重警告一次，并停职反省三日。",
+                    "2": "对被申请人施压或报复的，记重大过失一次，并移交纪检部门处理。",
+                    "3": "造成严重后果的，予以开除处分并追究法律责任。"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+
+      "物资申请管理办法": {
+        "$meta": { "extensible": true },
+        "title": "物资申请管理办法",
+        "description": "第七处物资领用申请流程规定",
+
+        "$formMeta": {
+          "formName": "物资领用申请表",
+          "description": "用于申请领用办公物资、装备等",
+          "targetPath": "MC.申请记录.物资申请",
+          "workflow": [
+            { "step": 1, "name": "填写申请", "handler": "申请人" },
+            { "step": 2, "name": "直属上级审批", "handler": "直属上级", "canReject": true },
+            { "step": 3, "name": "综合管理科审核", "handler": "综合管理科", "canReject": true },
+            { "step": 4, "name": "物资发放", "handler": "后勤组" }
+          ]
+        },
+
+        "第一章 总则": {
+          "$meta": { "extensible": true },
+
+          "第一节 基本规定": {
+            "$meta": { "extensible": true },
+
+            "第一条": "本办法适用于本处全体在编人员申请领用办公物资、工作装备及其他工作所需物品。",
+            "第二条": {
+              "_t": "本处物资按以下类别管理：",
+              "_s": {
+                "$meta": { "extensible": true },
+                "一": "办公用品：笔、纸、文件夹等日常消耗品。",
+                "二": "电子设备：电脑、手机、通讯器材等。",
+                "三": "工作装备：防护装具、战术器材等。",
+                "四": "特殊物资：需特别审批的高价值或限制级物品。"
+              }
+            }
+          }
+        },
+
+        "第二章 申请表单": {
+          "$meta": { "extensible": true },
+
+          "第一节 申请人信息": {
+            "$meta": { "extensible": true },
+
+            "第三条": {
+              "_t": "申请人须如实填写个人基本信息。",
+              "$fieldDef": [
+                { "label": "申请人姓名", "inputType": "readonly", "source": "MC.玩家.姓名" },
+                { "label": "所属部门", "inputType": "readonly", "source": "MC.玩家.部门" }
+              ]
+            },
+            "第四条": {
+              "_t": "申请日期默认为提交当日。",
+              "$fieldDef": { "label": "申请日期", "inputType": "date", "defaultValue": "{{currentDate}}" }
+            }
+          },
+
+          "第二节 物资详情": {
+            "$meta": { "extensible": true },
+
+            "第五条": {
+              "_t": "申请物资应按类别进行分类选择。",
+              "$fieldDef": {
+                "label": "物资类别",
+                "inputType": "select",
+                "required": true,
+                "options": ["办公用品", "电子设备", "工作装备", "特殊物资"]
+              }
+            },
+            "第六条": {
+              "_t": "应明确填写所申请物资的具体名称及数量。",
+              "$fieldDef": {
+                "label": "物资明细",
+                "inputType": "textarea",
+                "required": true,
+                "minLength": 10,
+                "maxLength": 500,
+                "placeholder": "请填写物资名称、规格、数量..."
+              }
+            },
+            "第七条": {
+              "_t": "须填写数量并说明理由：",
+              "_s": {
+                "$meta": { "extensible": true },
+                "一": {
+                  "_t": "申请数量须如实填写，不得虚报。",
+                  "$fieldDef": { "label": "申请数量", "inputType": "number", "required": true, "min": 1, "max": 100, "defaultValue": 1 }
+                },
+                "二": {
+                  "_t": "须简要说明申请该物资的用途及必要性。",
+                  "$fieldDef": { "label": "申请理由", "inputType": "text", "required": true, "maxLength": 200, "placeholder": "请说明申请物资的用途及必要性..." }
+                }
+              }
+            }
+          },
+
+          "第三节 确认与承诺": {
+            "$meta": { "extensible": true },
+
+            "第八条": {
+              "_t": "须选择本次申请的紧急程度。",
+              "$fieldDef": {
+                "label": "紧急程度",
+                "inputType": "radio",
+                "required": true,
+                "options": [
+                  { "value": "normal", "label": "普通" },
+                  { "value": "urgent", "label": "紧急" },
+                  { "value": "critical", "label": "特急" }
+                ]
+              }
+            },
+            "第九条": {
+              "_t": "申请人须确认所填信息真实有效。",
+              "$fieldDef": {
+                "label": "申请人承诺",
+                "inputType": "checkbox",
+                "checkboxLabel": "本人承诺以上所填信息真实有效，领用物资仅用于公务用途。",
+                "required": true,
+                "mustBeTrue": true
+              }
+            }
+          }
+        }
+      },
+
+      "个人需求申请管理办法": {
+        "$meta": { "extensible": true },
+        "title": "个人需求申请管理办法",
+        "description": "第七处个人需求申请流程规定",
+
+        "$formMeta": {
+          "formName": "个人需求申请表",
+          "description": "用于申请与特定同事进行特定活动",
+          "targetPath": "MC.申请记录.个人需求",
+          "workflow": [
+            { "step": 1, "name": "填写申请", "handler": "申请人" },
+            { "step": 2, "name": "直属上级审批", "handler": "直属上级", "canReject": true },
+            { "step": 3, "name": "涉及人员确认", "handler": "被申请人" },
+            { "step": 4, "name": "综合管理科备案", "handler": "综合管理科" }
+          ]
+        },
+
+        "第一章 总则": {
+          "$meta": { "extensible": true },
+
+          "第一节 适用范围": {
+            "$meta": { "extensible": true },
+
+            "第一条": "本办法适用于本处人员申请与特定同事进行亲密接触、特殊服务等个人需求事项。"
+          }
+        },
+
+        "第二章 申请表单": {
+          "$meta": { "extensible": true },
+
+          "第一节 申请人信息": {
+            "$meta": { "extensible": true },
+
+            "第二条": {
+              "_t": "系统将自动读取申请人登记信息。",
+              "$fieldDef": [
+                { "label": "申请人姓名", "inputType": "readonly", "source": "MC.玩家.姓名" },
+                { "label": "所属部门", "inputType": "readonly", "source": "MC.玩家.部门" }
+              ]
+            }
+          },
+
+          "第二节 申请详情": {
+            "$meta": { "extensible": true },
+
+            "第三条": {
+              "_t": "须明确指定涉及的人员，可从花名册中选择。",
+              "$fieldDef": {
+                "label": "涉及人员",
+                "inputType": "select",
+                "required": true,
+                "sourceType": "roster",
+                "sourcePath": "MC.花名册",
+                "displayField": "name"
+              }
+            },
+            "第四条": {
+              "_t": "须明确说明申请的具体事项内容。",
+              "$fieldDef": {
+                "label": "申请事项",
+                "inputType": "textarea",
+                "required": true,
+                "placeholder": "请具体描述申请事项..."
+              }
+            },
+            "第五条": {
+              "_t": "须说明预计进行的时间和地点。",
+              "$fieldDef": [
+                { "label": "预计时间", "inputType": "datetime", "required": true },
+                { "label": "预计地点", "inputType": "text", "placeholder": "如：休息室、办公室等" }
+              ]
+            },
+            "第六条": {
+              "_t": "须简要说明申请理由。",
+              "$fieldDef": {
+                "label": "申请理由",
+                "inputType": "textarea",
+                "placeholder": "请说明申请理由..."
+              }
+            }
+          }
+        }
+      },
+
+      "出差申请管理办法": {
+        "$meta": { "extensible": true },
+        "title": "出差申请管理办法",
+        "description": "第七处出差及差旅费用申请管理规定（展示table、showWhen、conditionalRequired等高级类型）",
+
+        "$formMeta": {
+          "formName": "出差申请表",
+          "description": "用于申请公务出差及相关费用预算",
+          "targetPath": "MC.申请记录.出差申请",
+          "workflow": [
+            { "step": 1, "name": "填写申请", "handler": "申请人" },
+            { "step": 2, "name": "直属上级审批", "handler": "直属上级", "canReject": true },
+            { "step": 3, "name": "综合管理科审核", "handler": "综合管理科", "canReject": true },
+            { "step": 4, "name": "财务科预算审核", "handler": "财务科", "canReject": true },
+            { "step": 5, "name": "处长审批", "handler": "处长", "canReject": true }
+          ],
+          "validDays": 30
+        },
+
+        "第一章 总则": {
+          "$meta": { "extensible": true },
+
+          "第一节 适用范围": {
+            "$meta": { "extensible": true },
+
+            "第一条": "本办法适用于本处全体在编人员因公务需要离开本市执行任务或参加会议、培训等活动的申请。"
+          }
+        },
+
+        "第二章 申请表单": {
+          "$meta": { "extensible": true },
+
+          "第一节 出差基本信息": {
+            "$meta": { "extensible": true },
+
+            "第二条": {
+              "_t": "须明确填写出差的目的地、时间、事由等基本信息。",
+              "$fieldDef": [
+                { "label": "申请人姓名", "inputType": "readonly", "source": "MC.玩家.姓名" },
+                { "label": "所属部门", "inputType": "readonly", "source": "MC.玩家.部门" },
+                { "label": "申请日期", "inputType": "date", "defaultValue": "{{currentDate}}", "required": true },
+                { "fieldId": "destination", "label": "目的地", "inputType": "text", "required": true, "placeholder": "如：北京市、上海市" },
+                { "fieldId": "start_date", "label": "出发日期", "inputType": "date", "required": true },
+                { "fieldId": "end_date", "label": "返回日期", "inputType": "date", "required": true },
+                { "fieldId": "trip_days", "label": "出差天数", "inputType": "number", "min": 1, "max": 30, "required": true },
+                {
+                  "fieldId": "trip_type",
+                  "label": "出差类型",
+                  "inputType": "select",
+                  "required": true,
+                  "options": [
+                    { "value": "mission", "label": "执行任务" },
+                    { "value": "meeting", "label": "参加会议" },
+                    { "value": "training", "label": "培训学习" },
+                    { "value": "investigation", "label": "调研考察" },
+                    { "value": "other", "label": "其他" }
+                  ]
+                },
+                { "fieldId": "trip_purpose", "label": "出差事由", "inputType": "textarea", "required": true, "minLength": 20, "placeholder": "请详细说明出差目的和工作内容..." }
+              ]
+            }
+          },
+
+          "第二节 行程与预算": {
+            "$meta": { "extensible": true },
+
+            "第三条": {
+              "_t": "须按日填写详细行程安排。",
+              "$fieldDef": {
+                "fieldId": "itinerary",
+                "label": "行程安排表",
+                "inputType": "table",
+                "required": true,
+                "minRows": 1,
+                "maxRows": 15,
+                "columns": [
+                  { "columnId": "date", "label": "日期", "type": "date", "width": "120px", "required": true },
+                  { "columnId": "location", "label": "所在地点", "type": "text", "width": "150px", "required": true },
+                  { "columnId": "activity", "label": "活动内容", "type": "text", "width": "200px", "required": true },
+                  { "columnId": "transport", "label": "交通方式", "type": "select", "width": "100px", "options": ["飞机", "高铁", "火车", "汽车", "自驾", "其他"] },
+                  { "columnId": "accommodation", "label": "住宿安排", "type": "select", "width": "120px", "options": ["指定酒店", "自行安排", "当日返回", "不需住宿"] },
+                  { "columnId": "remark", "label": "备注", "type": "text", "width": "150px" }
+                ],
+                "helpText": "请按出差日期逐日填写行程"
+              }
+            },
+            "第四条": {
+              "_t": "须根据行程安排填写各项费用预算。",
+              "$fieldDef": {
+                "fieldId": "budget",
+                "label": "费用预算表",
+                "inputType": "table",
+                "required": true,
+                "minRows": 1,
+                "maxRows": 20,
+                "columns": [
+                  { "columnId": "category", "label": "费用类别", "type": "select", "width": "120px", "required": true, "options": ["交通费", "住宿费", "餐饮费", "会议费", "培训费", "通讯费", "其他"] },
+                  { "columnId": "item", "label": "费用项目", "type": "text", "width": "180px", "required": true },
+                  { "columnId": "unit_price", "label": "单价(元)", "type": "number", "width": "100px", "min": 0 },
+                  { "columnId": "quantity", "label": "数量", "type": "number", "width": "80px", "min": 1, "defaultValue": 1 },
+                  { "columnId": "subtotal", "label": "小计(元)", "type": "number", "width": "100px", "required": true, "min": 0 },
+                  { "columnId": "remark", "label": "说明", "type": "text", "width": "150px" }
+                ],
+                "helpText": "请逐项填写费用预算，小计 = 单价 × 数量"
+              }
+            }
+          },
+
+          "第三节 附加信息": {
+            "$meta": { "extensible": true },
+
+            "第五条": {
+              "_t": "如有随行人员，须在此填写。此字段仅在选择【执行任务】类型时显示。",
+              "$fieldDef": {
+                "fieldId": "companions",
+                "label": "随行人员",
+                "inputType": "select",
+                "sourceType": "roster",
+                "sourcePath": "MC.花名册",
+                "displayField": "name",
+                "multiple": true,
+                "showWhen": {
+                  "field": "trip_type",
+                  "equals": "mission"
+                },
+                "helpText": "可从花名册中选择多名随行人员"
+              }
+            },
+            "第六条": {
+              "_t": "如出差类型为【其他】，须详细说明具体事项。",
+              "$fieldDef": {
+                "fieldId": "special_note",
+                "label": "特殊事项说明",
+                "inputType": "textarea",
+                "placeholder": "请说明其他类型出差的具体事项...",
+                "conditionalRequired": {
+                  "when": { "field": "trip_type", "equals": "other" },
+                  "required": true,
+                  "minLength": 50
+                }
+              }
+            }
+          },
+
+          "第四节 确认与承诺": {
+            "$meta": { "extensible": true },
+
+            "第七条": {
+              "_t": "如需预借差旅费用，须勾选并填写金额。",
+              "$fieldDef": [
+                {
+                  "fieldId": "need_advance",
+                  "label": "是否需要预借款",
+                  "inputType": "checkbox",
+                  "checkboxLabel": "我需要预借差旅费用"
+                },
+                {
+                  "fieldId": "advance_amount",
+                  "label": "预借金额(元)",
+                  "inputType": "number",
+                  "min": 0,
+                  "max": 50000,
+                  "showWhen": {
+                    "field": "need_advance",
+                    "equals": true
+                  },
+                  "conditionalRequired": {
+                    "when": { "field": "need_advance", "equals": true },
+                    "required": true
+                  }
+                }
+              ]
+            },
+            "第八条": {
+              "_t": "申请人须确认所填信息真实有效。",
+              "$fieldDef": {
+                "fieldId": "confirm",
+                "label": "申请人承诺",
+                "inputType": "checkbox",
+                "checkboxLabel": "本人承诺以上所填信息真实有效，出差期间将严格遵守相关规定。",
+                "required": true,
+                "mustBeTrue": true
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "申请记录": {
+      "$meta": { "extensible": true },
+
+      "物资申请": {
+        "$meta": { "extensible": true },
+        "APP20240315001": "【物资领用申请】申请人：<user>（行动一科）| 日期：2024-03-15 | 类别：办公用品 | 物资：签字笔×5盒 | 理由：日常办公使用 | 状态：审批中"
+      },
+
+      "个人需求": {
+        "$meta": { "extensible": true },
+        "APP20240312001": "【个人需求申请】申请人：<user>（行动一科）| 日期：2024-03-12 | 事项：申请与苏淼雨进行午休时间的亲密接触 | 涉及人员：苏淼雨 | 理由：增进同事感情 | 状态：已批准"
+      },
+
+      "出差申请": {
+        "$meta": { "extensible": true },
+        "APP20240310001": "【出差申请】申请人：<user>（行动一科）| 日期：2024-03-10 | 目的地：北京市 | 出发：2024-03-20 | 返回：2024-03-22 | 天数：3天 | 类型：参加会议 | 事由：参加全国特别事务管理工作会议 | 预算：4500元 | 状态：已批准"
+      }
+    }
+  }
+}

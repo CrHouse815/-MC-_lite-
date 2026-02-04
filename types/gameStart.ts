@@ -318,25 +318,17 @@ export function generateStartPrompt(formData: GameStartFormData): GeneratedPromp
   // 规章制度要求
   promptParts.push('## 规章制度要求');
   promptParts.push('');
-  promptParts.push('开局需生成以下规章制度文档（存储在`MC.文档`中），采用正式公文格式撰写：');
+  promptParts.push('开局需生成以下规章制度文档（存储在`MC.文档`中），采用递归自相似节点结构撰写：');
   promptParts.push('');
 
-  // 文档一：人事档案管理规定
-  promptParts.push('### 1. 人事档案管理规定');
+  // 文档一：主规章制度
+  promptParts.push('### 1. 主规章制度（员工守则/校规等）');
   promptParts.push('');
-  promptParts.push('**必须包含`$rosterMeta`元数据**：');
-  promptParts.push('```json');
-  promptParts.push('"$rosterMeta": {');
-  promptParts.push('  "rosterId": "花名册",');
-  promptParts.push('  "targetPath": "MC.花名册",');
-  promptParts.push('  "primaryKey": "id",');
-  promptParts.push('  "displayField": "name",');
-  promptParts.push('  "groupByField": "department"');
-  promptParts.push('}');
-  promptParts.push('```');
-  promptParts.push('');
-  promptParts.push('**花名册字段定义**（各章节使用`$groupDef`分组，条款使用`$fieldDef`定义字段）：');
-  promptParts.push(formData.rosterFields);
+  if (formData.mainDocument?.trim()) {
+    promptParts.push('**要点**：' + formData.mainDocument);
+    promptParts.push('');
+  }
+  promptParts.push('纯文本规章制度，采用递归自相似节点结构（`_t`正文 + `_s`子节点），包含总则、工作规范、行为准则等。');
   promptParts.push('');
   if (formData.dressCode?.trim()) {
     promptParts.push('**着装相关规定要点**：');
@@ -344,32 +336,24 @@ export function generateStartPrompt(formData: GameStartFormData): GeneratedPromp
     promptParts.push('');
   }
 
-  // 文档二：主规章制度
-  promptParts.push('### 2. 主规章制度（员工守则/校规等）');
+  // 文档二：申请表管理办法
+  promptParts.push('### 2. 申请表管理办法');
   promptParts.push('');
-  if (formData.mainDocument?.trim()) {
-    promptParts.push('**要点**：' + formData.mainDocument);
-    promptParts.push('');
-  }
-  promptParts.push('纯文本规章制度，包含总则、工作规范、行为准则等。');
-  promptParts.push('');
-
-  // 文档三：申请表管理办法
-  promptParts.push('### 3. 申请表管理办法');
-  promptParts.push('');
-  promptParts.push('**必须包含`$formMeta`元数据**：');
+  promptParts.push('**必须包含`$formMeta`元数据**（位于文档根级别）：');
   promptParts.push('```json');
   promptParts.push('"$formMeta": {');
-  promptParts.push('  "formId": "表单ID",');
   promptParts.push('  "formName": "表单名称",');
+  promptParts.push('  "description": "表单描述",');
   promptParts.push('  "targetPath": "MC.申请记录.类别名",');
-  promptParts.push('  "workflow": [{ "step": 1, "name": "步骤名", "handler": "处理人" }]');
+  promptParts.push('  "workflow": [{ "step": 1, "name": "步骤名", "handler": "处理人", "canReject": true }]');
   promptParts.push('}');
   promptParts.push('```');
   promptParts.push('');
-  promptParts.push(
-    '**各条款使用`$fieldDef`定义表单字段**（含`belongsTo`、`fieldId`、`formPosition`、`inputType`等属性）',
-  );
+  promptParts.push('**各条款使用`$fieldDef`定义表单字段**（与`_t`、`_s`并列放在分支节点中）：');
+  promptParts.push('- 支持的inputType：text、textarea、number、date、datetime、select、radio、checkbox、readonly、table');
+  promptParts.push('- 花名册选择器：`sourceType: "roster"`, `sourcePath: "MC.花名册"`, `displayField: "name"`');
+  promptParts.push('- 条件显示：`showWhen: { field: "fieldId", equals: "value" }`');
+  promptParts.push('- 条件必填：`conditionalRequired: { when: { field: "fieldId", equals: "value" }, required: true }`');
   promptParts.push('');
   if (formData.applicationForms?.trim()) {
     promptParts.push('**需要的申请表类型**：' + formData.applicationForms);
@@ -380,7 +364,7 @@ export function generateStartPrompt(formData: GameStartFormData): GeneratedPromp
 
   // 其他规则
   if (formData.otherRules?.trim()) {
-    promptParts.push('### 4. 其他规则');
+    promptParts.push('### 3. 其他规则');
     promptParts.push(formData.otherRules);
     promptParts.push('');
   }
@@ -401,26 +385,36 @@ export function generateStartPrompt(formData: GameStartFormData): GeneratedPromp
   promptParts.push('');
   promptParts.push('**1. MC.系统**：`{ "当前地点": "xxx", "当前时间": { "日期": "YYYY年M月D日", "时间": "HH:MM" } }`');
   promptParts.push('');
-  promptParts.push('**2. MC.玩家**：`{ "姓名": "xxx", "年龄": 数字, "职位": "xxx", "部门": "xxx" }`');
+  promptParts.push('**2. MC.玩家**：`{ "姓名": "<user>", "年龄": 数字, "职位": "xxx", "部门": "xxx" }`');
   promptParts.push('');
   promptParts.push('**3. MC.世界设定**：保存场景类型、名称、描述、世界观');
   promptParts.push('');
-  promptParts.push('**4. MC.文档**：规章制度文档，结构为`sections`→章节→`children`→条款');
-  promptParts.push('  - 每个`sections`和`children`需包含`"$meta": { "extensible": true }`');
-  promptParts.push('  - 人事档案规定需包含`$rosterMeta`、`$groupDef`、`$fieldDef`');
-  promptParts.push('  - 申请管理办法需包含`$formMeta`、`$fieldDef`');
+  promptParts.push('**4. MC.文档**：规章制度文档，采用递归自相似节点结构');
+  promptParts.push('  - 层级按key直接嵌套：`第一章 总则` → `第一节 机构概述` → `第一条`');
+  promptParts.push('  - 叶子节点为字符串，分支节点为 `{ _t: "正文", _s: { 编号key: 子节点 } }` 对象');
+  promptParts.push('  - `_s` 始终为对象（不是数组），key为编号');
+  promptParts.push('  - 层级编号体系：章>节>条>款(一二三…)>项(123…)>目(abc…)');
+  promptParts.push('  - 表单文档需包含`$formMeta`和`$fieldDef`');
+  promptParts.push('  - 每个文档根需包含`"$meta": { "extensible": true }`');
   promptParts.push('');
-  promptParts.push('**5. MC.花名册**（v3扁平结构）：');
-  promptParts.push('  - 条目直接在花名册下，无entries层');
-  promptParts.push('  - 使用`$schemaRef: "MC.文档.人事档案管理规定"`引用Schema');
-  promptParts.push('  - 键名格式`NoXXX`（禁止包含点号）');
+  promptParts.push('**5. MC.花名册**（内联Schema + entries结构）：');
+  promptParts.push('  - 内联`$schema`定义字段结构：');
+  promptParts.push('    ```json');
+  promptParts.push('    "$schema": {');
+  promptParts.push('      "primaryKey": "id",');
+  promptParts.push('      "displayField": "name",');
+  promptParts.push('      "groupByField": "department",');
+  promptParts.push('      "fields": { "id": "员工编号", "name": "姓名", ... }');
+  promptParts.push('    }');
+  promptParts.push('    ```');
+  promptParts.push('  - 花名册字段定义：' + formData.rosterFields);
+  promptParts.push('  - 条目在`entries`子对象下，键名格式`NoXXX`（禁止包含点号）');
   promptParts.push('  - 每个条目需包含`"$meta": { "extensible": true }`');
   promptParts.push('  - 创建2-3个初始NPC');
   promptParts.push('');
   promptParts.push('**6. MC.申请记录**：');
   promptParts.push('  - 按表单类型分类：`MC.申请记录.物资申请`、`MC.申请记录.个人需求`等');
-  promptParts.push('  - 使用`$formRef`引用表单定义');
-  promptParts.push('  - 记录以摘要文本存储：`【表单名】申请人：xxx | 字段：值 | 状态：xxx`');
+  promptParts.push('  - 记录以摘要文本存储：`【表单名】申请人：xxx（部门）| 字段：值 | 状态：xxx`');
   promptParts.push('');
   promptParts.push('---');
   promptParts.push('');

@@ -110,7 +110,7 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th v-for="col in field.columns" :key="col.key">
+              <th v-for="col in field.columns" :key="getColId(col)" :style="col.width ? { width: col.width } : {}">
                 {{ col.label }}
                 <span v-if="col.required" class="required-mark">*</span>
               </th>
@@ -119,27 +119,41 @@
           </thead>
           <tbody>
             <tr v-for="(row, index) in tableRows" :key="index">
-              <td v-for="col in field.columns" :key="col.key">
+              <td v-for="col in field.columns" :key="getColId(col)">
                 <input
-                  v-if="col.type === 'text' || col.type === 'number'"
+                  v-if="col.type === 'date'"
+                  type="date"
+                  class="table-cell-input"
+                  :value="row[getColId(col)]"
+                  @input="handleTableCellInput(index, getColId(col), $event)"
+                />
+                <input
+                  v-else-if="col.type === 'text' || col.type === 'number'"
                   :type="col.type"
                   class="table-cell-input"
-                  :value="row[col.key]"
+                  :value="row[getColId(col)]"
                   :min="col.min"
                   :max="col.max"
-                  @input="handleTableCellInput(index, col.key, $event)"
+                  @input="handleTableCellInput(index, getColId(col), $event)"
                 />
                 <select
                   v-else-if="col.type === 'select'"
                   class="table-cell-select"
-                  :value="row[col.key]"
-                  @change="handleTableCellSelect(index, col.key, $event)"
+                  :value="row[getColId(col)]"
+                  @change="handleTableCellSelect(index, getColId(col), $event)"
                 >
                   <option value="">-</option>
                   <option v-for="opt in col.options" :key="opt" :value="opt">
                     {{ opt }}
                   </option>
                 </select>
+                <input
+                  v-else
+                  type="text"
+                  class="table-cell-input"
+                  :value="row[getColId(col)]"
+                  @input="handleTableCellInput(index, getColId(col), $event)"
+                />
               </td>
               <td class="action-col">
                 <button
@@ -170,7 +184,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import type { FormFieldDef, FormFieldOption } from '../../types/form';
+import type { FormFieldDef, FormFieldOption, TableColumn } from '../../types/form';
 import { useFormStore } from '../../stores/formStore';
 
 interface Props {
@@ -189,6 +203,11 @@ const formStore = useFormStore();
 
 /** 模型值 */
 const modelValue = computed(() => props.value);
+
+/** 获取列ID（兼容 columnId 和 key） */
+const getColId = (col: TableColumn): string => {
+  return col.columnId || col.key || col.label;
+};
 
 /** 是否为花名册选择器 */
 const isRosterSelect = computed(() => props.field.sourceType === 'roster');

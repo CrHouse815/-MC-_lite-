@@ -1,6 +1,9 @@
 <!--
-  文档面板 v2
-  支持多文档切换 + 递归树形渲染 + 可收缩侧栏
+  文档面板 v3
+  适配精简变量结构的递归自相似节点：
+  - 使用 chapterEntries（[key, value] 对数组）渲染文档章节
+  - TreeNodeRenderer 接收 nodeKey + nodeValue props
+  - 支持多文档切换 + 递归树形渲染 + 可收缩侧栏
 -->
 <template>
   <div class="document-panel" :class="{ 'sidebar-collapsed': isSidebarCollapsed }">
@@ -16,7 +19,7 @@
       <aside class="document-sidebar" :class="{ collapsed: isSidebarCollapsed }">
         <div class="sidebar-header">
           <span v-if="!isSidebarCollapsed" class="sidebar-title">文档列表</span>
-          <button class="toggle-btn" @click="toggleSidebar" :title="isSidebarCollapsed ? '展开侧栏' : '收起侧栏'">
+          <button class="toggle-btn" :title="isSidebarCollapsed ? '展开侧栏' : '收起侧栏'" @click="toggleSidebar">
             {{ isSidebarCollapsed ? '▶' : '◀' }}
           </button>
         </div>
@@ -27,9 +30,9 @@
             :key="doc.id"
             class="doc-item"
             :class="{ active: isCurrentDoc(doc.id) }"
-            @click.stop.prevent="handleSelectDocument(doc.id)"
             role="button"
             tabindex="0"
+            @click.stop.prevent="handleSelectDocument(doc.id)"
             @keydown.enter="handleSelectDocument(doc.id)"
           >
             <span class="doc-icon">📖</span>
@@ -51,10 +54,10 @@
             :key="doc.id"
             class="collapsed-item"
             :class="{ active: isCurrentDoc(doc.id) }"
-            @click.stop.prevent="handleSelectDocument(doc.id)"
             :title="doc.title || doc.id"
             role="button"
             tabindex="0"
+            @click.stop.prevent="handleSelectDocument(doc.id)"
             @keydown.enter="handleSelectDocument(doc.id)"
           >
             📖
@@ -91,11 +94,17 @@
         <div v-else class="document-content">
           <div class="current-doc-header">
             <h3 class="current-doc-title">{{ title }}</h3>
-            <span class="section-count">{{ sectionCount }} 节</span>
+            <span class="section-count">{{ chapterCount }} 章</span>
           </div>
           <div v-if="description" class="document-description">{{ description }}</div>
 
-          <TreeNodeRenderer v-for="section in sectionsSorted" :key="section.id" :section="section" :depth="0" />
+          <TreeNodeRenderer
+            v-for="[chapterKey, chapterValue] in chapterEntries"
+            :key="chapterKey"
+            :node-key="chapterKey"
+            :node-value="chapterValue"
+            :depth="0"
+          />
         </div>
       </div>
     </div>
@@ -129,8 +138,8 @@ const effectiveDocId = computed(() => documentStore.effectiveDocId);
 const title = computed(() => documentStore.title);
 const description = computed(() => documentStore.description);
 const isEmpty = computed(() => documentStore.isEmpty);
-const sectionCount = computed(() => documentStore.sectionCount);
-const sectionsSorted = computed(() => documentStore.sectionsSorted);
+const chapterEntries = computed(() => documentStore.chapterEntries);
+const chapterCount = computed(() => chapterEntries.value.length);
 
 /** 侧栏收缩状态 */
 const isSidebarCollapsed = ref(false);
@@ -182,9 +191,9 @@ watch(title, (newTitle, oldTitle) => {
 });
 
 watch(
-  sectionsSorted,
-  newSections => {
-    console.log('[DocumentPanel] sectionsSorted 变化, 节点数:', newSections.length);
+  chapterEntries,
+  newEntries => {
+    console.log('[DocumentPanel] chapterEntries 变化, 章节数:', newEntries.length);
   },
   { deep: true },
 );

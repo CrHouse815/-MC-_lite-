@@ -40,8 +40,8 @@
             </span>
           </div>
           <!-- 版本徽章 -->
-          <div class="version-badge" title="MClite v0.7.4">
-            <span class="version-tag">MClite v0.7.4</span>
+          <div class="version-badge" title="MClite v0.8.1">
+            <span class="version-tag">MClite v0.8.1</span>
           </div>
         </div>
 

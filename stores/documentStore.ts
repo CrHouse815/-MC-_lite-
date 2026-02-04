@@ -1,42 +1,40 @@
 /**
- * MClite v2 - 文档 Store
- * 支持多文档管理，兼容旧版单文档结构
+ * MClite v5 - 文档 Store
+ * 适配精简变量结构（递归自相似节点设计）：
+ * - 文档中章节直接作为key嵌套，没有中间 sections 层
+ * - 节点使用 _t/_s 递归结构
+ * - 支持多文档管理
  */
 
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import type {
+  DocMeta,
+  DocNodeValue,
   DocumentEntry,
   DocumentsContainer,
-  DocumentsMeta,
-  Section,
-  SectionsContainer,
-  SectionsMeta,
 } from '../types/document';
 import {
-  convertLegacyToMultiDoc,
+  countNodes,
   DEFAULT_DOCUMENT_ENTRY,
   DEFAULT_DOCUMENTS,
   DOCUMENTS_PATH,
-  flattenSections,
+  getChapterEntries,
   getDocumentsSorted,
-  getSectionsSorted,
   isLegacySingleDocument,
+  isLegacyStructure,
 } from '../types/document';
 import { useMvuStore } from './mvuStore';
 
 /**
  * 尝试解析可能被字符串化的文档数据
  * 当MVU框架因为JSON内包含转义引号而错误地将对象存储为字符串时使用
- * @param value 可能是字符串化的JSON的值
- * @returns 解析后的对象，如果无法解析则返回原值
  */
 function tryParseStringifiedValue(value: unknown): unknown {
   if (typeof value !== 'string') {
     return value;
   }
 
-  // 检查是否看起来像JSON对象或数组
   const trimmed = value.trim();
   if (!((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']')))) {
     return value;
@@ -47,9 +45,7 @@ function tryParseStringifiedValue(value: unknown): unknown {
     console.log('[DocumentStore] 成功解析字符串化的文档数据');
     return parsed;
   } catch (e) {
-    // 如果标准解析失败，尝试修复常见的转义问题
     try {
-      // 有时字符串会被双重转义，尝试处理
       const unescaped = value.replace(/\\"/g, '"').replace(/\\\\/g, '\\');
       if (unescaped !== value) {
         const parsed = JSON.parse(unescaped);
@@ -67,8 +63,6 @@ function tryParseStringifiedValue(value: unknown): unknown {
 
 /**
  * 修复文档容器中可能被字符串化的文档条目
- * @param container 原始文档容器
- * @returns 修复后的文档容器
  */
 function fixStringifiedDocuments(container: Record<string, unknown>): Record<string, unknown> {
   const fixed: Record<string, unknown> = {};
@@ -80,13 +74,11 @@ function fixStringifiedDocuments(container: Record<string, unknown>): Record<str
       continue;
     }
 
-    // 检查文档值是否为字符串（应该是对象）
     if (typeof value === 'string') {
       console.warn(`[DocumentStore] 检测到字符串化的文档: "${key}"，尝试修复...`);
       hasStringifiedDocs = true;
       const parsed = tryParseStringifiedValue(value);
 
-      // 验证解析结果是否是有效的文档条目
       if (parsed && typeof parsed === 'object' && 'title' in (parsed as Record<string, unknown>)) {
         console.log(`[DocumentStore] 文档 "${key}" 修复成功`);
         fixed[key] = parsed;
@@ -106,6 +98,107 @@ function fixStringifiedDocuments(container: Record<string, unknown>): Record<str
   return fixed;
 }
 
+/**
+ * 将旧版文档结构（带 sections/children/title/content/order）转换为新版递归自相似结构
+ */
+function convertLegacyDocumentEntry(legacy: Record<string, unknown>): DocumentEntry {
+  const result: DocumentEntry = {
+    title: String(legacy.title || ''),
+    description: String(legacy.description || ''),
+  };
+
+  if (legacy.$meta) {
+    result.$meta = legacy.$meta as DocMeta;
+  }
+  if (legacy.$formMeta) {
+    result.$formMeta = legacy.$formMeta as DocumentEntry['$formMeta'];
+  }
+
+  // 递归转换 sections
+  if (legacy.sections && typeof legacy.sections === 'object') {
+    const sections = legacy.sections as Record<string, unknown>;
+    for (const [key, section] of Object.entries(sections)) {
+      if (key === '$meta' || key.startsWith('$')) continue;
+      if (!section || typeof section !== 'object') continue;
+      const s = section as Record<string, unknown>;
+      result[key] = convertLegacySectionNode(s);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * 递归转换旧版 Section 节点为新版 DocNodeValue
+ */
+function convertLegacySectionNode(section: Record<string, unknown>): DocNodeValue {
+  const content = section.content as string | undefined;
+  const children = section.children as Record<string, unknown> | undefined;
+  const fieldDef = section.$fieldDef;
+
+  // 判断是否有子节点
+  const hasChildNodes = children && typeof children === 'object' &&
+    Object.keys(children).filter(k => !k.startsWith('$')).length > 0;
+
+  if (!hasChildNodes && !fieldDef) {
+    // 叶子节点：只有 content，直接返回字符串
+    return content || '';
+  }
+
+  // 分支节点
+  const node: Record<string, unknown> = {};
+  if (content) {
+    node._t = content;
+  }
+  if (fieldDef) {
+    node.$fieldDef = fieldDef;
+  }
+  if (hasChildNodes) {
+    const childEntries: Record<string, DocNodeValue> = {};
+    const sortedChildren = Object.entries(children!)
+      .filter(([k]) => !k.startsWith('$'))
+      .sort(([, a], [, b]) => {
+        const aOrder = (a as Record<string, unknown>)?.order as number ?? 999;
+        const bOrder = (b as Record<string, unknown>)?.order as number ?? 999;
+        return aOrder - bOrder;
+      });
+
+    for (const [childKey, childSection] of sortedChildren) {
+      if (!childSection || typeof childSection !== 'object') continue;
+      childEntries[childKey] = convertLegacySectionNode(childSection as Record<string, unknown>);
+    }
+
+    if (Object.keys(childEntries).length > 0) {
+      node._s = childEntries;
+    }
+  }
+
+  return node as DocNodeValue;
+}
+
+/**
+ * 将旧版文档容器转换为新版格式
+ */
+function convertLegacyContainer(container: Record<string, unknown>): DocumentsContainer {
+  const result: DocumentsContainer = {
+    $meta: { extensible: true },
+  };
+
+  for (const [key, value] of Object.entries(container)) {
+    if (key === '$meta') {
+      result.$meta = value as DocMeta;
+      continue;
+    }
+    if (!value || typeof value !== 'object') continue;
+    const entry = value as Record<string, unknown>;
+    if (typeof entry.title !== 'string') continue;
+
+    result[key] = convertLegacyDocumentEntry(entry);
+  }
+
+  return result;
+}
+
 export const useDocumentStore = defineStore('document', () => {
   const mvuStore = useMvuStore();
 
@@ -119,7 +212,6 @@ export const useDocumentStore = defineStore('document', () => {
 
   /**
    * 数据版本号 - 用于强制触发计算属性的响应式更新
-   * 当 MVU 数据更新时递增此值，从而让依赖它的计算属性重新计算
    */
   const dataVersion = ref(0);
 
@@ -130,13 +222,10 @@ export const useDocumentStore = defineStore('document', () => {
 
   /** 完整文档容器（支持多文档） */
   const documentsContainer = computed<DocumentsContainer>(() => {
-    // 依赖 dataVersion，当版本号变化时触发重新计算
-    // 这是一个技巧：通过读取 dataVersion.value 来建立响应式依赖
     const _version = dataVersion.value;
 
     const rawData = mvuStore.getVariable(DOCUMENTS_PATH, DEFAULT_DOCUMENTS);
 
-    // 调试日志：帮助确认数据读取情况
     console.log('[DocumentStore] 读取 MC.文档 变量 (version=' + _version + '):', {
       path: DOCUMENTS_PATH,
       rawDataType: typeof rawData,
@@ -147,11 +236,20 @@ export const useDocumentStore = defineStore('document', () => {
     // 兼容旧版单文档结构
     if (isLegacySingleDocument(rawData)) {
       console.log('[DocumentStore] 检测到旧版单文档结构，进行转换');
-      return convertLegacyToMultiDoc(rawData);
+      const converted = convertLegacyDocumentEntry(rawData as Record<string, unknown>);
+      return {
+        $meta: { extensible: true },
+        default: converted,
+      };
     }
 
-    // 【关键修复】检测并修复字符串化的文档条目
-    // 当文档内容中包含特殊字符（如嵌套引号）时，MVU可能会将整个对象存储为JSON字符串
+    // 兼容旧版多文档结构（带 sections/children）
+    if (rawData && typeof rawData === 'object' && isLegacyStructure(rawData)) {
+      console.log('[DocumentStore] 检测到旧版多文档结构，进行转换');
+      return convertLegacyContainer(rawData as Record<string, unknown>);
+    }
+
+    // 修复字符串化的文档条目
     if (rawData && typeof rawData === 'object') {
       const fixedData = fixStringifiedDocuments(rawData as Record<string, unknown>);
       return fixedData as DocumentsContainer;
@@ -169,23 +267,14 @@ export const useDocumentStore = defineStore('document', () => {
   /** 是否没有任何文档 */
   const hasNoDocuments = computed(() => documentCount.value === 0);
 
-  /** 当前有效的文档ID（处理自动选择逻辑） */
+  /** 当前有效的文档ID */
   const effectiveDocId = computed<string | null>(() => {
-    // 显式依赖 currentDocId.value，确保响应式更新
     const selectedId = currentDocId.value;
-    console.log('[DocumentStore] effectiveDocId 计算被触发, currentDocId:', selectedId);
-
-    // 如果已选择文档，直接返回（简化逻辑，不再检查文档是否存在）
-    // 这样可以确保响应式更新正常工作
     if (selectedId) {
-      console.log('[DocumentStore] effectiveDocId 计算: 使用选中的文档', selectedId);
       return selectedId;
     }
-
-    // 否则使用第一个文档
     const list = documentList.value;
     if (list.length > 0) {
-      console.log('[DocumentStore] effectiveDocId 计算: 使用默认文档', list[0].id);
       return list[0].id;
     }
     return null;
@@ -193,21 +282,14 @@ export const useDocumentStore = defineStore('document', () => {
 
   /** 当前选中的文档 */
   const currentDocument = computed<DocumentEntry | null>(() => {
-    // 显式依赖 effectiveDocId.value
     const docId = effectiveDocId.value;
-    console.log('[DocumentStore] currentDocument 计算, docId:', docId);
-
-    if (!docId) {
-      return null;
-    }
+    if (!docId) return null;
 
     const container = documentsContainer.value;
     const doc = container[docId];
     if (doc && typeof doc === 'object' && 'title' in doc) {
-      console.log('[DocumentStore] currentDocument 找到文档:', (doc as DocumentEntry).title);
       return doc as DocumentEntry;
     }
-    console.log('[DocumentStore] currentDocument 未找到文档');
     return null;
   });
 
@@ -215,22 +297,24 @@ export const useDocumentStore = defineStore('document', () => {
   const title = computed(() => currentDocument.value?.title || '');
 
   /** 当前文档描述 */
-  const description = computed(() => currentDocument.value?.description || '');
+  const description = computed(() => {
+    const doc = currentDocument.value;
+    if (!doc) return '';
+    return (doc.description as string) || '';
+  });
 
-  /** 当前文档的顶级节点 */
-  const sections = computed(() => currentDocument.value?.sections || { $meta: { extensible: true } });
-
-  /** 当前文档顶级节点（排序后） */
-  const sectionsSorted = computed(() => getSectionsSorted(sections.value));
+  /** 当前文档的章节列表（[key, value] 对数组） */
+  const chapterEntries = computed(() => {
+    const doc = currentDocument.value;
+    if (!doc) return [];
+    return getChapterEntries(doc);
+  });
 
   /** 当前文档节点总数 */
-  const sectionCount = computed(() => flattenSections(sections.value).length);
+  const nodeCount = computed(() => countNodes(chapterEntries.value));
 
   /** 当前文档是否为空 */
-  const isEmpty = computed(() => sectionCount.value === 0);
-
-  /** 当前文档扁平化的所有节点（带深度） */
-  const flatSections = computed(() => flattenSections(sections.value));
+  const isEmpty = computed(() => chapterEntries.value.length === 0);
 
   // ========== Actions ==========
 
@@ -240,8 +324,6 @@ export const useDocumentStore = defineStore('document', () => {
       isLoading.value = true;
       if (!mvuStore.isMvuAvailable) await mvuStore.initialize();
 
-      // 注册 MVU 更新结束事件监听
-      // 当后台变量更新时，递增 dataVersion 以触发计算属性重新计算
       if (!unsubscribeUpdateEnd) {
         unsubscribeUpdateEnd = mvuStore.onUpdateEnd(() => {
           console.log('[DocumentStore] 收到 MVU 更新结束事件，递增 dataVersion');
@@ -264,7 +346,6 @@ export const useDocumentStore = defineStore('document', () => {
 
   const refresh = async () => {
     await mvuStore.refresh();
-    // 手动刷新时也递增版本号
     dataVersion.value++;
   };
 
@@ -279,92 +360,31 @@ export const useDocumentStore = defineStore('document', () => {
   /** 选择文档 */
   const selectDocument = (docId: string) => {
     console.log('[DocumentStore] selectDocument 被调用, docId:', docId);
-    console.log('[DocumentStore] 当前 currentDocId:', currentDocId.value);
-    console.log('[DocumentStore] documentsContainer keys:', Object.keys(documentsContainer.value));
 
-    // 检查文档是否存在（排除 $meta）
     let doc = documentsContainer.value[docId];
-    console.log('[DocumentStore] 查找到的文档:', doc ? '存在' : '不存在', typeof doc);
 
-    // 【关键修复】如果文档是字符串类型，尝试解析它
+    // 如果文档是字符串类型，尝试解析
     if (typeof doc === 'string') {
       console.warn('[DocumentStore] 检测到字符串类型的文档，尝试解析...');
       const parsed = tryParseStringifiedValue(doc);
       if (parsed && typeof parsed === 'object' && 'title' in (parsed as Record<string, unknown>)) {
         doc = parsed as DocumentEntry;
-        console.log('[DocumentStore] 文档解析成功:', (doc as DocumentEntry).title);
       }
     }
 
     if (doc && typeof doc === 'object' && 'title' in doc) {
-      console.log('[DocumentStore] 切换到文档:', docId, '当前文档ID:', currentDocId.value);
-
-      // 确保更新触发响应式
       if (currentDocId.value !== docId) {
         currentDocId.value = docId;
         console.log('[DocumentStore] 文档切换完成，新的文档ID:', currentDocId.value);
-        console.log('[DocumentStore] effectiveDocId 应该更新为:', effectiveDocId.value);
-        console.log('[DocumentStore] currentDocument title:', currentDocument.value?.title);
-      } else {
-        console.log('[DocumentStore] 文档ID未变化，跳过更新');
       }
     } else {
-      console.warn('[DocumentStore] 尝试选择不存在的文档:', docId, '可用文档:', Object.keys(documentsContainer.value));
-      console.warn('[DocumentStore] doc 内容:', JSON.stringify(doc));
+      console.warn('[DocumentStore] 尝试选择不存在的文档:', docId);
     }
   };
 
-  /** 获取实际的当前文档ID（处理自动选择逻辑） - 使用响应式计算属性版本 */
+  /** 获取实际的当前文档ID */
   const getEffectiveDocId = (): string | null => {
     return effectiveDocId.value;
-  };
-
-  // ========== 节点操作 ==========
-
-  const getSection = (sectionId: string): Section | undefined => {
-    const section = sections.value[sectionId];
-    return section && typeof section === 'object' && 'title' in section ? (section as Section) : undefined;
-  };
-
-  const getSectionChildren = (section: Section): Array<{ id: string } & Section> => {
-    if (!section.children) return [];
-    return getSectionsSorted(section.children);
-  };
-
-  const addSection = async (sectionId: string, section: Section, parentPath?: string) => {
-    const docId = getEffectiveDocId();
-    if (!docId) return false;
-
-    const path = parentPath
-      ? `${DOCUMENTS_PATH}.${docId}.sections.${parentPath}.children.${sectionId}`
-      : `${DOCUMENTS_PATH}.${docId}.sections.${sectionId}`;
-    return await mvuStore.setVariable(path, section, '添加节点');
-  };
-
-  const updateSection = async (sectionId: string, updates: Partial<Section>, parentPath?: string) => {
-    const current = getSection(sectionId);
-    if (!current) return false;
-
-    const docId = getEffectiveDocId();
-    if (!docId) return false;
-
-    const path = parentPath
-      ? `${DOCUMENTS_PATH}.${docId}.sections.${parentPath}.children.${sectionId}`
-      : `${DOCUMENTS_PATH}.${docId}.sections.${sectionId}`;
-    return await mvuStore.setVariable(path, { ...current, ...updates }, '更新节点');
-  };
-
-  const removeSection = async (sectionId: string, parentPath?: string) => {
-    const docId = getEffectiveDocId();
-    if (!docId) return false;
-
-    const basePath = parentPath
-      ? `${DOCUMENTS_PATH}.${docId}.sections.${parentPath}.children`
-      : `${DOCUMENTS_PATH}.${docId}.sections`;
-    const current = mvuStore.getVariable(basePath, {}) as SectionsContainer;
-    const newSections: Record<string, Section | SectionsMeta | undefined> = { ...current };
-    delete newSections[sectionId];
-    return await mvuStore.setVariable(basePath, newSections, '删除节点');
   };
 
   // ========== 文档元数据操作 ==========
@@ -391,10 +411,9 @@ export const useDocumentStore = defineStore('document', () => {
   /** 删除文档 */
   const removeDocument = async (docId: string) => {
     const current = mvuStore.getVariable(DOCUMENTS_PATH, {}) as DocumentsContainer;
-    const newDocs: Record<string, DocumentEntry | DocumentsMeta | undefined> = { ...current };
+    const newDocs: Record<string, DocumentEntry | DocMeta | undefined> = { ...current };
     delete newDocs[docId];
 
-    // 如果删除的是当前选中的文档，切换到其他文档
     if (currentDocId.value === docId) {
       const remaining = Object.keys(newDocs).filter(k => k !== '$meta');
       currentDocId.value = remaining.length > 0 ? remaining[0] : null;
@@ -419,22 +438,14 @@ export const useDocumentStore = defineStore('document', () => {
     currentDocument,
     title,
     description,
-    sections,
-    sectionsSorted,
-    sectionCount,
+    chapterEntries,
+    nodeCount,
     isEmpty,
-    flatSections,
     // Actions
     initialize,
     refresh,
     selectDocument,
     getEffectiveDocId,
-    // 节点操作
-    getSection,
-    getSectionChildren,
-    addSection,
-    updateSection,
-    removeSection,
     // 文档元数据操作
     updateTitle,
     updateDescription,

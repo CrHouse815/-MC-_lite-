@@ -48,10 +48,15 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { FieldDefinition } from '../../types/roster';
+
+/** 简化版字段定义 */
+interface SimpleField {
+  label: string;
+  type?: string;
+}
 
 const props = defineProps<{
-  field: FieldDefinition;
+  field: SimpleField;
   value: unknown;
 }>();
 

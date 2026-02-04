@@ -13,6 +13,81 @@
 
 ---
 
+## [0.8.1] - 2026-02-04-11:09
+
+> 🔧 **Bug修复**：存档/读档功能正文恢复——直接快照酒馆消息0
+
+### Fixed
+
+- **修复读档时正文只恢复前端面板显示、未同步到酒馆聊天层的问题** ([`useAIInteraction.ts`](src/MClite/composables/useAIInteraction.ts:1634), [`SaveService.ts`](src/MClite/services/SaveService.ts:336))
+  - 问题：读档功能对正文的恢复实际上只修改了前端面板的 Vue 响应式状态（`currentContent`、`swipes` 等），并未将存档中的正文内容写入酒馆的聊天层（消息0），导致 AI 下次回复时无法基于正确的上下文
+  - 原因：[`restoreAIContentData()`](src/MClite/composables/useAIInteraction.ts:1634) 只更新了 Vue ref，缺少对 [`saveAIReplyToChat()`](src/MClite/composables/useAIInteraction.ts:989) 的调用
+  - 修复：
+    - `restoreAIContentData()` 改为 `async` 函数，恢复 Vue 状态后调用 `saveAIReplyToChat()` 将内容写入酒馆消息0
+    - [`SaveService.ts`](src/MClite/services/SaveService.ts:336) 的恢复者回调类型升级为 `(data) => void | Promise<void>`，支持异步恢复
+  - 容错：即使酒馆聊天层同步失败，前端面板显示仍会正常恢复（不会导致读档完全失效）
+
+- **修复存档只保存 JS 变量而非酒馆消息0真实内容的问题** ([`SaveService.ts`](src/MClite/services/SaveService.ts:425))
+  - 问题：存档时只保存了 `lastAIResponse`（一个 JS 变量），而非直接从酒馆消息0读取的完整内容。`lastAIResponse` 可能与消息0内容不同步，且不包含 `<thinking>`、`<历史记录>`、`<UpdateVariable>` 等标签的完整内容
+  - 修复：
+    - [`AIContentData`](src/MClite/services/SaveService.ts:14) 接口新增 `chatMessage0Snapshot` 字段——酒馆消息0的完整内容快照
+    - 新增 [`captureMessage0Content()`](src/MClite/services/SaveService.ts:425) 方法：通过 `TavernHelper.getChatMessages('0')` 直接从酒馆聊天记录读取消息0的 `.message` 内容
+    - 新增 [`enrichAIContentDataWithMessage0()`](src/MClite/services/SaveService.ts:440) 方法：将快照合并到 `AIContentData`
+    - [`createSave()`](src/MClite/services/SaveService.ts:472)、[`updateSave()`](src/MClite/services/SaveService.ts:514)、[`createAutoSave()`](src/MClite/services/SaveService.ts:606) 三个存档方法全部加入快照逻辑
+  - 读档优先级：`chatMessage0Snapshot` > `lastAIResponse`（旧版存档向后兼容）
+  - 补偿逻辑：若 `chatMessage0Snapshot` 存在但 `lastAIResponse` 为空，用快照填充 `lastAIResponse` 确保上下文注入正常
+
+### 存档/读档流程（修复后）
+
+```
+存档流程（createSave / updateSave / createAutoSave）:
+  ├── 1. 收集 Vue 响应式状态 (getAIContentData)
+  │     └── currentContent, swipes, lastAIResponse, lastUserInput...
+  ├── 2. 【新增】捕获消息0快照 (captureMessage0Content)        ✅
+  │     └── TavernHelper.getChatMessages('0') → msg[0].message
+  ├── 3. 【新增】合并快照到存档 (enrichAIContentDataWithMessage0) ✅
+  │     └── aiContentData.chatMessage0Snapshot = 快照内容
+  └── 4. 写入 IndexedDB
+
+读档流程 (loadSave → restoreAIContentData):
+  ├── 1. 恢复 Vue 响应式状态（前端面板显示）
+  ├── 2. 【新增】写入酒馆聊天层（消息0）                      ✅
+  │     └── 优先使用 chatMessage0Snapshot，回退到 lastAIResponse
+  └── 3. 【新增】补偿 lastAIResponse（确保上下文注入）         ✅
+```
+
+---
+
+## [0.8.0] - 2026-02-04-02:19
+
+> 🔄 **重大重构**：全新变量结构 + 各面板新版适配
+
+### Changed
+
+- **全新变量结构设计**
+  - 采用递归自相似节点设计（`_t`/`_s` 结构），替代旧版扁平化变量方案
+  - 层级体系：章 > 节 > 条 > 款 > 项 > 目，支持无限嵌套
+  - 节点统一为叶子字符串或 `{_t, _s}` 对象，`_s` 始终为对象确保结构化
+  - 新增 `$meta`、`$schema`、`$formMeta`、`$fieldDef` 等元数据字段支持
+
+- **人事系统（花名册）面板适配** ([`RosterPanel.vue`](src/MClite/components/roster/RosterPanel.vue), [`rosterStore.ts`](src/MClite/stores/rosterStore.ts))
+  - 适配简化变量结构：`$schema` 内联，`fields` 为 key→label 扁平映射
+  - 条目统一存储在 `entries` 子对象下
+  - 自动响应后台 MVU 变量变化
+
+- **文档查看面板适配** ([`DocumentPanel.vue`](src/MClite/components/document/DocumentPanel.vue), [`documentStore.ts`](src/MClite/stores/documentStore.ts))
+  - 适配精简变量结构的递归自相似节点
+  - 使用 `chapterEntries`（`[key, value]` 对数组）渲染文档章节
+  - `TreeNodeRenderer` 接收 `nodeKey` + `nodeValue` props 递归渲染
+  - 支持多文档切换 + 可收缩侧栏
+
+- **申请表面板适配** ([`FormPanel.vue`](src/MClite/components/form/FormPanel.vue), [`formStore.ts`](src/MClite/stores/formStore.ts))
+  - 表单定义从文档的 `$formMeta` + `$fieldDef` 解析
+  - `$fieldDef` 嵌入在递归节点中（与 `_t`、`_s` 并列）
+  - 用文档 key 作为 `formId`，花名册条目在 `MC.花名册.entries` 下
+
+---
+
 ## [0.7.5] - 2026-01-15-02:35
 
 > 🎉 **新功能版本**：开局预设保存与管理系统

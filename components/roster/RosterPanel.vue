@@ -1,8 +1,9 @@
 <!--
-  花名册面板 v3
-  Schema-Driven 自动渲染
-  支持新版重构变量结构（条目直接在花名册下，Schema 引用规章制度）
-  支持夜间模式适配 & 规整布局
+  花名册面板 v4
+  适配简化变量结构：
+  - $schema 内联，fields 为 key→label 扁平映射
+  - 条目在 entries 下
+  - 无分组/字段类型等复杂 Schema
 -->
 <template>
   <div class="roster-panel">
@@ -10,8 +11,7 @@
     <div class="panel-header">
       <div class="header-left">
         <span class="panel-icon">👥</span>
-        <h2>{{ panelTitle }}</h2>
-        <span v-if="isV3Format" class="version-badge">v3</span>
+        <h2>花名册</h2>
       </div>
       <div class="header-right">
         <span class="entry-count">{{ entryCount }} 人</span>
@@ -74,7 +74,7 @@
           <div class="entry-table">
             <!-- 表头 -->
             <div class="table-header">
-              <div class="col-name">姓名</div>
+              <div class="col-name">{{ displayFieldLabel }}</div>
               <div v-for="field in summaryFields" :key="field.id" class="col-summary">
                 {{ field.label }}
               </div>
@@ -96,7 +96,7 @@
                     <span class="person-name">{{ getEntryDisplayValue(entry) }}</span>
                   </div>
                   <div v-for="field in summaryFields" :key="field.id" class="col-summary">
-                    <span class="summary-value">{{ formatFieldValue(entry[field.id], field) }}</span>
+                    <span class="summary-value">{{ formatFieldValue(entry[field.id]) }}</span>
                   </div>
                   <div class="col-action">
                     <span class="expand-btn">
@@ -108,15 +108,14 @@
                 <!-- 展开的详情面板 -->
                 <div v-if="selectedEntryId === getEntryPrimaryKey(entry)" class="row-details">
                   <div class="details-content">
-                    <div v-for="group in groupsSorted" :key="group.id" class="detail-section">
-                      <h4 class="section-title">{{ group.label }}</h4>
-                      <div class="field-grid">
-                        <SchemaFieldRenderer
-                          v-for="field in getFieldsForGroup(group.id)"
-                          :key="field.id"
-                          :field="field"
-                          :value="entry[field.id]"
-                        />
+                    <div class="field-grid">
+                      <div
+                        v-for="field in schemaFields"
+                        :key="field.id"
+                        class="field-item"
+                      >
+                        <span class="field-label">{{ field.label }}</span>
+                        <span class="field-value">{{ formatFieldValue(entry[field.id]) }}</span>
                       </div>
                     </div>
                   </div>
@@ -134,113 +133,81 @@
 import { storeToRefs } from 'pinia';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRosterStore } from '../../stores/rosterStore';
-import SchemaFieldRenderer from '../common/SchemaFieldRenderer.vue';
-import type { FieldDefinition } from '../../types/roster';
+import type { RosterEntry } from '../../types/roster';
 
 defineEmits<{ (e: 'close'): void }>();
 
 const rosterStore = useRosterStore();
 const {
-  roster,
-  rosterV3,
   isEmpty,
   entryCount,
   entriesByGroup,
-  groupsSorted,
-  summaryFields,
+  schemaFields,
+  schema,
   selectedEntryId,
   isLoading,
   error,
   updateVersion,
-  isV3Format,
 } = storeToRefs(rosterStore);
 
-const { selectEntry, getEntryPrimaryKey, getEntryDisplayValue, getFieldsForGroup, refresh, initialize } = rosterStore;
+const { selectEntry, getEntryPrimaryKey, getEntryDisplayValue, refresh, initialize } = rosterStore;
 
 /** 当前选中的分组 */
 const selectedGroup = ref<string | null>(null);
 
-/** 面板标题 */
-const panelTitle = computed(() => {
-  // 新版格式：尝试从 $schemaRef 获取标题
-  if (isV3Format.value && rosterV3.value.$schemaRef) {
-    return '人事档案';
-  }
-  // 旧版格式：从 $meta.description 获取
-  return roster.value.$meta?.description || '花名册';
+/** displayField 的 label */
+const displayFieldLabel = computed(() => {
+  const displayField = schema.value.displayField;
+  return schema.value.fields[displayField] || '姓名';
 });
 
-// 监听 updateVersion 变化，用于调试和确保响应式更新
-watch(
-  updateVersion,
-  newVersion => {
-    console.log(
-      '[RosterPanel] updateVersion 变化:',
-      newVersion,
-      '当前条目数:',
-      entryCount.value,
-      '格式:',
-      isV3Format.value ? 'v3' : 'v2',
-    );
-  },
-  { immediate: false },
-);
+/** 摘要字段：除了 primaryKey 和 displayField 外的前几个字段 */
+const summaryFields = computed(() => {
+  const pk = schema.value.primaryKey;
+  const df = schema.value.displayField;
+  return schemaFields.value
+    .filter(f => f.id !== pk && f.id !== df)
+    .slice(0, 3); // 最多显示 3 个摘要字段
+});
+
+watch(updateVersion, (v) => {
+  console.log('[RosterPanel] updateVersion:', v, '条目数:', entryCount.value);
+}, { immediate: false });
 
 /** 当前分组的人员列表 */
 const currentGroupEntries = computed(() => {
   if (!selectedGroup.value) {
-    // 返回所有人员
     return Object.values(entriesByGroup.value).flat();
   }
   return entriesByGroup.value[selectedGroup.value] || [];
 });
 
-/** 选择分组 */
 const selectGroup = (groupName: string) => {
-  if (selectedGroup.value === groupName) {
-    selectedGroup.value = null; // 取消选择
-  } else {
-    selectedGroup.value = groupName;
-  }
+  selectedGroup.value = selectedGroup.value === groupName ? null : groupName;
 };
 
-/** 切换条目展开状态 */
 const toggleEntry = (entryId: string) => {
-  if (selectedEntryId.value === entryId) {
-    selectEntry(null);
-  } else {
-    selectEntry(entryId);
-  }
+  selectEntry(selectedEntryId.value === entryId ? null : entryId);
 };
 
-/** 获取头像字符（取姓名第一个字） */
-const getAvatarChar = (entry: Record<string, unknown>): string => {
+const getAvatarChar = (entry: RosterEntry): string => {
   const name = getEntryDisplayValue(entry);
   return name ? name.charAt(0) : '?';
 };
 
-/** 格式化字段值 */
-const formatFieldValue = (value: unknown, field: FieldDefinition): string => {
+const formatFieldValue = (value: unknown): string => {
   if (value === null || value === undefined) return '-';
-  if (field.type === 'tags' && Array.isArray(value)) {
-    return value.length > 0 ? value.join(', ') : '-';
-  }
+  if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : '-';
   return String(value);
 };
 
 onMounted(async () => {
   await initialize();
-  // 默认选中第一个分组
   const groups = Object.keys(entriesByGroup.value);
-  if (groups.length > 0) {
-    selectedGroup.value = groups[0];
-  }
-  console.log('[RosterPanel] 面板已挂载，初始条目数:', entryCount.value, '格式:', isV3Format.value ? 'v3' : 'v2');
+  if (groups.length > 0) selectedGroup.value = groups[0];
 });
 
 onUnmounted(() => {
-  // 组件卸载时不销毁 store（因为可能被其他组件使用）
-  // 但可以在这里记录日志
   console.log('[RosterPanel] 面板已卸载');
 });
 </script>
@@ -270,9 +237,7 @@ onUnmounted(() => {
     align-items: center;
     gap: 10px;
 
-    .panel-icon {
-      font-size: 20px;
-    }
+    .panel-icon { font-size: 20px; }
 
     h2 {
       margin: 0;
@@ -311,19 +276,9 @@ onUnmounted(() => {
       }
     }
   }
-
-  .version-badge {
-    font-size: 10px;
-    padding: 2px 6px;
-    background: var(--primary-light);
-    color: var(--primary-color);
-    border-radius: 4px;
-    font-weight: 600;
-    text-transform: uppercase;
-  }
 }
 
-// ========== 主体区域（侧栏 + 内容） ==========
+// ========== 主体区域 ==========
 .panel-main {
   display: flex;
   flex: 1;
@@ -367,13 +322,8 @@ onUnmounted(() => {
     border-radius: 6px;
     cursor: pointer;
     transition: all 0.2s;
-    background: transparent;
 
-    .category-name {
-      font-size: 13px;
-      color: var(--text-color);
-    }
-
+    .category-name { font-size: 13px; color: var(--text-color); }
     .category-count {
       font-size: 12px;
       color: var(--text-secondary);
@@ -382,22 +332,11 @@ onUnmounted(() => {
       border-radius: 10px;
     }
 
-    &:hover {
-      background: var(--bg-hover);
-    }
-
+    &:hover { background: var(--bg-hover); }
     &.active {
       background: var(--primary-light);
-
-      .category-name {
-        color: var(--primary-color);
-        font-weight: 600;
-      }
-
-      .category-count {
-        background: var(--primary-color);
-        color: white;
-      }
+      .category-name { color: var(--primary-color); font-weight: 600; }
+      .category-count { background: var(--primary-color); color: white; }
     }
   }
 }
@@ -410,7 +349,6 @@ onUnmounted(() => {
   background: var(--bg-color);
 }
 
-// ========== 状态容器 ==========
 .state-container {
   display: flex;
   flex-direction: column;
@@ -419,21 +357,12 @@ onUnmounted(() => {
   padding: 48px;
   height: 100%;
 
-  .state-icon {
-    font-size: 48px;
-    margin-bottom: 16px;
-  }
-
-  p {
-    margin: 0 0 8px 0;
-    color: var(--text-secondary);
-    font-size: 15px;
-  }
+  .state-icon { font-size: 48px; margin-bottom: 16px; }
+  p { margin: 0 0 8px 0; color: var(--text-secondary); font-size: 15px; }
 
   .empty-hint {
     font-size: 13px;
     color: var(--text-disabled);
-
     code {
       background: var(--bg-tertiary);
       padding: 2px 6px;
@@ -451,16 +380,10 @@ onUnmounted(() => {
     border: none;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 14px;
-    transition: background 0.2s;
-
-    &:hover {
-      background: var(--primary-hover);
-    }
+    &:hover { background: var(--primary-hover); }
   }
 }
 
-// ========== 内容区域 ==========
 .content-area {
   display: flex;
   flex-direction: column;
@@ -474,16 +397,8 @@ onUnmounted(() => {
   padding-bottom: 12px;
   border-bottom: 2px solid var(--primary-color);
 
-  .group-title {
-    margin: 0;
-    font-size: 18px;
-    color: var(--text-color);
-  }
-
-  .group-count {
-    font-size: 14px;
-    color: var(--text-secondary);
-  }
+  .group-title { margin: 0; font-size: 18px; color: var(--text-color); }
+  .group-count { font-size: 14px; color: var(--text-secondary); }
 }
 
 // ========== 表格样式 ==========
@@ -503,25 +418,17 @@ onUnmounted(() => {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
 }
 
 .table-body {
-  max-height: calc(100vh - 320px);
+  max-height: 500px;
   overflow-y: auto;
 }
 
 .table-row {
   border-bottom: 1px solid var(--border-color);
-
-  &:last-child {
-    border-bottom: none;
-  }
-
-  &.is-expanded {
-    background: var(--bg-color);
-  }
+  &:last-child { border-bottom: none; }
+  &.is-expanded { background: var(--bg-tertiary); }
 }
 
 .row-main {
@@ -530,152 +437,78 @@ onUnmounted(() => {
   padding: 12px 16px;
   cursor: pointer;
   transition: background 0.2s;
-
-  &:hover {
-    background: var(--bg-hover);
-  }
+  &:hover { background: var(--bg-hover); }
 }
 
 .col-name {
-  flex: 2;
+  flex: 1.5;
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-width: 150px;
-
-  .person-avatar {
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--primary-light);
-    color: var(--primary-color);
-    border-radius: 50%;
-    font-size: 14px;
-    font-weight: 600;
-  }
-
-  .person-name {
-    font-weight: 500;
-    color: var(--text-color);
-  }
+  gap: 10px;
 }
 
-.col-summary {
-  flex: 1;
-  min-width: 100px;
+.col-summary { flex: 1; font-size: 13px; color: var(--text-secondary); }
+.col-action { width: 80px; text-align: right; }
 
-  .summary-value {
-    font-size: 13px;
-    color: var(--text-secondary);
-  }
+.person-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary-light);
+  color: var(--primary-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
 }
 
-.col-action {
-  width: 80px;
-  text-align: right;
+.person-name { font-size: 14px; font-weight: 500; color: var(--text-color); }
 
-  .expand-btn {
-    font-size: 12px;
-    color: var(--primary-color);
-    cursor: pointer;
-
-    &:hover {
-      text-decoration: underline;
-    }
-  }
+.expand-btn {
+  font-size: 12px;
+  color: var(--primary-color);
+  cursor: pointer;
 }
 
-// ========== 详情面板 ==========
 .row-details {
-  padding: 0 16px 16px 16px;
-}
-
-.details-content {
-  background: var(--bg-tertiary);
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.detail-section {
-  margin-bottom: 20px;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-
-  .section-title {
-    margin: 0 0 12px 0;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--primary-color);
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border-color);
-  }
+  padding: 16px 16px 16px 58px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-color);
 }
 
 .field-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 12px 16px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
 }
 
-// ========== 响应式适配 ==========
+.field-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+
+  .field-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .field-value {
+    font-size: 14px;
+    color: var(--text-color);
+    word-break: break-word;
+  }
+}
+
+// ========== 响应式 ==========
 @media (max-width: 768px) {
-  .panel-main {
-    flex-direction: column;
-  }
-
-  .category-sidebar {
-    width: 100%;
-    min-width: auto;
-    flex-direction: row;
-    border-right: none;
-    border-bottom: 1px solid var(--border-color);
-
-    .sidebar-header {
-      display: none;
-    }
-
-    .category-list {
-      display: flex;
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      padding: 8px;
-      gap: 8px;
-    }
-
-    .category-item {
-      flex-shrink: 0;
-      margin-bottom: 0;
-    }
-  }
-
-  .table-header {
-    display: none;
-  }
-
-  .row-main {
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .col-name {
-    flex: 1 1 100%;
-  }
-
-  .col-summary {
-    flex: 0 0 auto;
-  }
-
-  .col-action {
-    flex: 0 0 auto;
-    width: auto;
-  }
-
-  .field-grid {
-    grid-template-columns: 1fr;
-  }
+  .panel-main { flex-direction: column; }
+  .category-sidebar { width: 100%; min-width: 100%; max-height: 120px; border-right: none; border-bottom: 1px solid var(--border-color); }
+  .category-list { display: flex; flex-wrap: wrap; gap: 4px; }
+  .field-grid { grid-template-columns: 1fr; }
 }
 </style>

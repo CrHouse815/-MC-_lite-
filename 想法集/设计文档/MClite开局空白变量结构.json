@@ -1,0 +1,51 @@
+{
+  "$meta": {
+    "extensible": true,
+    "version": "7.1",
+    "description": "MClite 开局空白变量结构 - 仅保留根目录骨架，所有数据区域为空，供开局初始化使用。"
+  },
+  "MC": {
+    "$meta": { "extensible": true },
+
+    "系统": {
+      "$meta": { "extensible": true },
+      "当前地点": "",
+      "当前时间": {
+        "日期": "",
+        "时间": ""
+      }
+    },
+
+    "玩家": {
+      "$meta": { "extensible": true },
+      "姓名": "<user>",
+      "年龄": 0,
+      "职位": "",
+      "部门": ""
+    },
+
+    "花名册": {
+      "$meta": { "extensible": true },
+
+      "$schema": {
+        "primaryKey": "id",
+        "displayField": "name",
+        "groupByField": "department",
+        "fields": {}
+      },
+
+      "entries": {
+        "$meta": { "extensible": true }
+      }
+    },
+
+    "文档": {
+      "$meta": { "extensible": true }
+    },
+
+    "申请记录": {
+      "$meta": { "extensible": true },
+      }
+    }
+  }
+}

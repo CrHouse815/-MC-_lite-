@@ -24,6 +24,12 @@ export interface AIContentData {
   lastUpdateTime: string;
   /** 上一次AI回复的完整原始文本（用于注入到下一次请求的上下文） */
   lastAIResponse?: string;
+  /**
+   * 酒馆消息0的完整内容快照（直接从酒馆聊天记录读取）
+   * 包含 thinking、历史记录、UpdateVariable、gametxt 等所有标签内容
+   * 这是最可靠的存档数据源，读档时优先使用此字段恢复消息0
+   */
+  chatMessage0Snapshot?: string;
 }
 
 /**
@@ -332,8 +338,8 @@ export class SaveService {
   /** AI内容数据提供者回调 */
   private aiContentDataProvider: (() => AIContentData | null) | null = null;
 
-  /** AI内容数据恢复者回调 */
-  private aiContentDataRestorer: ((data: AIContentData) => void) | null = null;
+  /** AI内容数据恢复者回调（支持异步，用于同步正文到酒馆聊天层） */
+  private aiContentDataRestorer: ((data: AIContentData) => void | Promise<void>) | null = null;
 
   /**
    * 注册AI内容数据提供者
@@ -347,8 +353,9 @@ export class SaveService {
   /**
    * 注册AI内容数据恢复者
    * 由useAIInteraction调用来设置恢复AI内容的方法
+   * 支持异步恢复者（用于将正文同步到酒馆聊天层）
    */
-  setAIContentDataRestorer(restorer: (data: AIContentData) => void): void {
+  setAIContentDataRestorer(restorer: (data: AIContentData) => void | Promise<void>): void {
     this.aiContentDataRestorer = restorer;
     console.log('[SaveService] AI内容数据恢复者已注册');
   }
@@ -369,24 +376,80 @@ export class SaveService {
 
   /**
    * 恢复AI内容数据
-   * 增强：支持异步恢复
+   * 增强：支持异步恢复，确保正文内容同步写入酒馆聊天层
    */
   private async restoreAIContentData(data: AIContentData): Promise<boolean> {
     if (this.aiContentDataRestorer && data) {
       try {
-        // 调用恢复者（同步调用）
-        this.aiContentDataRestorer(data);
+        // 调用恢复者（支持异步，恢复者内部会同步正文到酒馆聊天层）
+        const result = this.aiContentDataRestorer(data);
+
+        // 如果恢复者返回了 Promise，等待它完成
+        if (result instanceof Promise) {
+          await result;
+        }
 
         // 等待一小段时间确保 Vue 响应式更新完成
         await new Promise(resolve => setTimeout(resolve, 10));
 
-        console.log('[SaveService] AI内容数据已恢复');
+        console.log('[SaveService] AI内容数据已恢复（含酒馆聊天层同步）');
         return true;
       } catch (err) {
         console.error('[SaveService] 恢复AI内容数据失败:', err);
       }
     }
     return false;
+  }
+
+  // ========== 酒馆消息0快照管理 ==========
+
+  /**
+   * 从酒馆聊天记录中直接读取消息0的完整内容
+   * 这是最可靠的数据源，包含 thinking、历史记录、UpdateVariable、gametxt 等所有标签内容
+   * 用于存档时捕获消息0的完整快照
+   */
+  private async captureMessage0Content(): Promise<string | null> {
+    try {
+      if (typeof (window as any).TavernHelper?.getChatMessages !== 'function') {
+        console.warn('[SaveService] TavernHelper.getChatMessages 不可用，无法捕获消息0');
+        return null;
+      }
+
+      const msgs = await (window as any).TavernHelper.getChatMessages('0');
+      if (msgs && msgs.length > 0 && msgs[0]?.message) {
+        const content = msgs[0].message;
+        console.log('[SaveService] 已捕获消息0快照，长度:', content.length);
+        return content;
+      }
+
+      console.warn('[SaveService] 消息0不存在或内容为空');
+      return null;
+    } catch (err) {
+      console.warn('[SaveService] 捕获消息0内容失败:', err);
+      return null;
+    }
+  }
+
+  /**
+   * 将AI内容数据与消息0快照合并
+   * 在存档前调用，将直接从酒馆读取的消息0内容注入到 AIContentData 中
+   */
+  private async enrichAIContentDataWithMessage0(aiContentData: AIContentData | null): Promise<AIContentData | null> {
+    if (!aiContentData) return null;
+
+    try {
+      const msg0Content = await this.captureMessage0Content();
+      if (msg0Content) {
+        return {
+          ...aiContentData,
+          chatMessage0Snapshot: msg0Content,
+        };
+      }
+    } catch (err) {
+      console.warn('[SaveService] 合并消息0快照失败，存档将仅包含 lastAIResponse:', err);
+    }
+
+    return aiContentData;
   }
 
   /**
@@ -401,7 +464,10 @@ export class SaveService {
       // 收集所有数据
       const mvuData = this.getMvuData();
       const contextData = await contextManagerService.getSaveData();
-      const aiContentData = this.getAIContentData();
+      const rawAiContentData = this.getAIContentData();
+
+      // 【关键增强】将消息0的完整快照合并到AI内容数据中
+      const aiContentData = await this.enrichAIContentDataWithMessage0(rawAiContentData);
 
       const saveData: GameSaveData = {
         id: this.generateId(),
@@ -418,7 +484,9 @@ export class SaveService {
       // 保存到IndexedDB
       await this.putSave(saveData);
 
-      console.log('[SaveService] 存档创建成功:', saveData.id, aiContentData ? '(含AI内容)' : '');
+      console.log('[SaveService] 存档创建成功:', saveData.id,
+        aiContentData ? '(含AI内容)' : '',
+        aiContentData?.chatMessage0Snapshot ? '(含消息0快照)' : '(无消息0快照)');
       return saveData;
     } catch (err) {
       console.error('[SaveService] 创建存档失败:', err);
@@ -444,7 +512,10 @@ export class SaveService {
       // 更新数据
       const mvuData = this.getMvuData();
       const contextData = await contextManagerService.getSaveData();
-      const aiContentData = this.getAIContentData();
+      const rawAiContentData = this.getAIContentData();
+
+      // 【关键增强】将消息0的完整快照合并到AI内容数据中
+      const aiContentData = await this.enrichAIContentDataWithMessage0(rawAiContentData);
 
       const updatedSave: GameSaveData = {
         ...existingSave,
@@ -533,7 +604,10 @@ export class SaveService {
 
       const mvuData = this.getMvuData();
       const contextData = await contextManagerService.getSaveData();
-      const aiContentData = this.getAIContentData();
+      const rawAiContentData = this.getAIContentData();
+
+      // 【关键增强】将消息0的完整快照合并到AI内容数据中
+      const aiContentData = await this.enrichAIContentDataWithMessage0(rawAiContentData);
 
       const saveData: GameSaveData = {
         id: this.generateId('auto'),
@@ -551,7 +625,9 @@ export class SaveService {
 
       await this.putSave(saveData);
 
-      console.log('[SaveService] 自动存档创建成功:', saveData.id, aiContentData ? '(含AI内容)' : '');
+      console.log('[SaveService] 自动存档创建成功:', saveData.id,
+        aiContentData ? '(含AI内容)' : '',
+        aiContentData?.chatMessage0Snapshot ? '(含消息0快照)' : '(无消息0快照)');
       return saveData;
     } catch (err) {
       console.error('[SaveService] 创建自动存档失败:', err);
