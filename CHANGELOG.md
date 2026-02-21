@@ -13,6 +13,339 @@
 
 ---
 
+## [0.9.6] - 2026-02-21
+
+> 📋 **待办 & 公告系统** + 预设系统重做 + AI 提示词精简
+
+### Added
+
+- **待办事项系统（MC.待办）** — AI 根据剧情生成待办，玩家可在前端勾选完成
+  - 新增 [`todoStore.ts`](src/MClite/stores/todoStore.ts)：Pinia store，解析扁平摘要字符串为结构化 `TodoItem`，支持勾选标记完成（修改状态字段后写回 MVU）
+  - 键名格式 `TODO` + YYYYMMDD + 三位序号，摘要格式：`【标题】描述 | 来源：xxx | 优先级：紧急/普通 | 截止：日期 | 状态：未完成/进行中/已完成/已取消`
+
+- **公告通知系统（MC.公告）** — AI 根据剧情生成公告，玩家只读查看
+  - 新增 [`noticeStore.ts`](src/MClite/stores/noticeStore.ts)：Pinia store，解析摘要字符串为结构化 `NoticeItem`
+  - 键名格式 `NOTICE` + YYYYMMDD + 三位序号，摘要格式：`【类别】标题 | 发布：xxx | 日期：xxx | 重要性：普通/重要/紧急`
+
+- **顶部小窗 Widget** — 徽章 + 下拉卡片 UI
+  - 新增 [`WidgetDock.vue`](src/MClite/components/game/widgets/WidgetDock.vue)：容器组件，管理互斥展开（同时只展开一个），嵌入 `MainContent.vue` 的 `content-header` 与 `game-text` 之间
+  - 新增 [`TodoWidget.vue`](src/MClite/components/game/widgets/TodoWidget.vue)：待办徽章 `📋 待办 (N)` + 展开列表，复选框勾选完成，优先级/截止日期标签，已完成项删除线灰色样式
+  - 新增 [`NoticeWidget.vue`](src/MClite/components/game/widgets/NoticeWidget.vue)：公告徽章 `📢 公告 (N)` + 展开列表，重要性色条指示（普通/重要/紧急），只读
+
+- **预设导入导出** — 预设管理面板新增导入（📥 选择 .json 文件）和导出（📤 单个或全部）功能
+
+### Changed
+
+- **预设系统重做** ([`PresetService.ts`](src/MClite/services/PresetService.ts), [`PresetManagerDialog.vue`](src/MClite/components/game/gamestart/PresetManagerDialog.vue), [`GameStartPanel.vue`](src/MClite/components/game/GameStartPanel.vue), [`gameStart.ts`](src/MClite/types/gameStart.ts))
+  - 删除 3 个内置预设（`BUILTIN_PRESETS`），仅保留玩家自定义预设
+  - 预设数据从 `GameStartFormData`（不含文档）升级为 `SerializedEditorData`（完整编辑态，含文档结构）
+  - 新增序列化基础设施：`SerializedEditorData` / `SerializedEditorDocument` 类型，`serializeEditorData()` / `deserializeEditorData()` 函数（[`documentEditor.ts`](src/MClite/types/documentEditor.ts)）
+  - 存储版本 v1 → v2，自动迁移旧用户预设（`formData` → `editorData`），旧内置预设丢弃
+  - 删除复制预设功能（`duplicatePreset`）
+  - 预设管理 UI 重写：去掉内置预设分区，新增操作栏（导入/导出），空状态提示，预设条目显示文档数量
+
+- **AI 提示词精简** — 新增 [`MClite变量描述与规则v7`](src/MClite/想法集/AI提示词/MClite变量描述与规则v7)
+  - 从 v6 的 953 行精简至 358 行（减少 62%），削减重复和前端专属内容
+  - 删除：操作速查表（与 example block 90%+ 重复）、注意事项（全为复述）、field description table（与 `$schema.fields` 冗余）
+  - 保留：表单字段类型（inputType）表、字段完整属性列表、table 列定义、条件规则语法
+  - 合并 `$meta` 警告从 7 处集中为 2 处，新增叶子→分支升级模式到 example block
+
+- **开局变量结构更新**
+  - [`MClite开局空白变量结构.json`](src/MClite/想法集/设计文档/MClite开局空白变量结构.json)：新增 `MC.待办` 和 `MC.公告` 空容器
+  - [`MClite精简变量结构示例_v2.json`](src/MClite/想法集/设计文档/MClite精简变量结构示例_v2.json)：新增待办和公告示例数据
+  - [`MClite变量描述与规则v6`](src/MClite/想法集/AI提示词/MClite变量描述与规则v6)：新增 5.5 待办事项 / 5.6 公告通知章节，更新 $meta 清单、路径规则、操作速查表、示例 block
+  - [`GameStartBuilderService.ts`](src/MClite/services/GameStartBuilderService.ts)：开局提示词和直接变量写入均包含 `MC.待办` / `MC.公告` 空容器
+
+### Fixed
+
+- **修复预设面板内容不刷新的问题** ([`PresetService.ts`](src/MClite/services/PresetService.ts))
+  - **问题**：保存/删除/导入预设后，面板列表不更新，需关闭重开
+  - **根因**：`getAllPresets()` 直接返回内部缓存数组引用。操作后重新赋值给 Vue ref 时，引用未变，Vue 检测不到变化
+  - **修复**：`getAllPresets()` 改为返回浅拷贝 `[...data.presets]`
+
+---
+
+## [0.9.5] - 2026-02-21
+
+> 🔧 **上下文管理器修复**：调整分段/总结数量后世界书未正确更新
+
+### Fixed
+
+- **修复上下文管理器调整大小总结/分段正文数量无效的问题** ([`ContextManagerService.ts`](src/MClite/services/ContextManagerService.ts))
+  - **问题**：在游戏过程中调整分段正文或小总结的数量后，世界书条目中的内容不会正确更新
+  - **根因 1 — 空条目不清除**：`regenerateSegments()` 仅在分段内容非空时才写入世界书。当调整数量导致某个分段变空（如增大分段正文数量使小总结/大总结归零），对应的世界书条目保留旧内容不会被清除，AI 仍然看到过时的上下文
+  - **根因 2 — 分段正文切片错位**：`generateSegmentedContent()` 用 `historyRecords.length` 计算范围索引，但分段正文从 `historyTexts` 切片。两个数组长度可能不同步（AI 有时只输出 `<gametxt>` 或只输出 `<历史记录>`），导致切片越界取到空数组
+  - **修复**：
+    - 移除分段内容非空判断，始终写入所有三个世界书条目（空字符串也写入以清除旧内容）；`hasData` 前置检查已保证无数据时不写入
+    - 分段正文改为直接按 `historyTexts.length` 取最近 N 条，不再依赖基于 records 的范围计算
+
+---
+
+## [0.9.4] - 2026-02-21
+
+> 🔧 **「直接开始」模式变量写入彻底修复** + 文档渲染 `$meta` 泄漏修复
+
+### Fixed
+
+- **彻底修复「直接开始」模式文档变量写入** ([`GameStartBuilderService.ts`](src/MClite/services/GameStartBuilderService.ts), [`GameLayout.vue`](src/MClite/components/game/GameLayout.vue), [`GameStartPanel.vue`](src/MClite/components/game/GameStartPanel.vue), [`MainContent.vue`](src/MClite/components/game/MainContent.vue))
+  - **问题**：v0.9.3 修复了触发时机，但文档变量仍然无法写入——命令字符串经 `parseMessage` 解析后静默失败
+  - **根因链**：
+    1. srcdoc HTML 清理器将编译后 JS 中的 `<UpdateVariable>...</UpdateVariable>` 字面量当作 HTML 元素删除，导致 `directCommands` 为空字符串
+    2. 用 `String.fromCharCode` 绕过清理器后，`parseMessage` 仍无法正确执行 `_.set`/`_.assign` 写入复杂嵌套对象
+    3. `JSON.stringify(obj, null, 2)` 的多行输出被 MVU 行分割解析器拆碎，单条命令被截断
+  - **修复方案**：彻底放弃命令字符串 + `parseMessage` 路径，改为直接数据写入
+    - `GameStartOutput.directCommands: string` → `directVariables: DirectVariables`（数据对象）
+    - `buildDocumentCommandsOnly()` → `buildDirectVariablesData()`：直接返回 `{ 'MC.文档': {...}, 'MC.申请记录': {...} }`
+    - `executePendingDirectCommands()` → `executePendingDirectVariables()`：调用 `mvuStore.setVariables()` → `Mvu.setMvuVariable()` 直接写入 MVU，与快速审批功能使用同一 API 路径
+
+- **修复文档查看面板中 `$meta` 元数据被渲染为章节的问题** ([`TreeNodeRenderer.vue`](src/MClite/components/common/TreeNodeRenderer.vue))
+  - **问题**：文档树中 `_s` 子节点的 `$meta: { extensible: true }` 被当作名为"$meta"的章节渲染，下方显示"extensible"子项
+  - **根因**：`childEntries` 计算属性遍历 `_s` 子节点时未过滤 `$` 开头的特殊 key（裸对象路径有过滤，`_s` 路径遗漏）
+  - **修复**：`_s` 路径增加 `.filter(([k]) => !isSpecialKey(k))` 过滤
+
+### 修复后架构
+
+```
+GameStartPanel → buildDirectVariablesData()
+  → 返回 { 'MC.文档': {...}, 'MC.申请记录': {...} }
+  → emit('start', { prompt, directVariables })
+
+GameLayout → handleGameStart()
+  → 暂存 directVariables
+  → onceVariablesProcessed 回调
+
+AI 完成 → executePendingDirectVariables()
+  → mvuStore.setVariables(variables, '开局初始化')
+  → Mvu.setMvuVariable()  ← MVU 原生 API 直接写入
+```
+
+---
+
+## [0.9.3] - 2026-02-21
+
+> 🔧 **关键 Bug 修复**：「直接开始」模式文档变量写入失败
+
+### Fixed
+
+- **修复「直接开始」模式下 MC.文档/MC.申请记录 始终无法写入后台变量管理器的问题** ([`GameLayout.vue`](src/MClite/components/game/GameLayout.vue), [`useAIInteraction.ts`](src/MClite/composables/useAIInteraction.ts))
+  - **问题**：选择「直接开始」（AI 润色关闭）时，前端应在 AI 响应完成后将 MC.文档 和 MC.申请记录 直接写入后台变量，但该功能从未成功执行
+  - **根因**：`GameLayout.vue` 使用 `watch(aiIsStreaming)` 监听 `isStreaming` 从 `true` 变为 `false` 来触发文档写入。但 `isStreaming` 仅在收到流式 token 时才变为 `true`；若流式传输关闭、或 `GENERATION_ENDED` 事件先于 `STREAM_TOKEN_RECEIVED_FULLY` 到达，`isStreaming` 始终为 `false`，watcher 不触发，`executePendingDirectCommands` 永远不执行
+  - **次要问题**：审查模式（默认开启）下，`isStreaming` 在审查对话框弹出时就被设为 `false`，导致文档写入在 AI 变量处理之前执行，时序不安全
+  - **修复**：
+    - `useAIInteraction.ts`：新增 `onceVariablesProcessed(callback)` 一次性回调机制，在 `processAIResponseDirectly` 末尾（AI 变量全部处理完成后）触发
+    - `GameLayout.vue`：移除有缺陷的 `watch(aiIsStreaming)` watcher，改为在 `handleGameStart` 中通过 `onceVariablesProcessed` 注册回调
+  - **效果**：无论流式传输开关状态、审查模式开关状态，文档变量都能在正确的时机（AI 变量写入完成后）被写入
+
+### 修复后执行顺序
+
+```
+AI 生成完成
+  → processAIResponseDirectly
+    → parseAndUpdateVariables (写入 MC.系统/玩家/花名册)
+    → performAutoSave
+    → flushVariablesProcessedCallbacks  ← 触发点
+      → executePendingDirectCommands (写入 MC.文档/MC.申请记录)
+  → isStreaming = false
+```
+
+---
+
+## [0.9.2] - 2026-02-21
+
+> 🔧 **核心流程修复**：修复"直接开始"逻辑、表单输入 IME 兼容、表单数据缓存
+
+### Fixed
+
+- **修复"直接开始"模式流程** ([`GameStartBuilderService.ts`](src/MClite/services/GameStartBuilderService.ts), [`GameLayout.vue`](src/MClite/components/game/GameLayout.vue))
+  - AI 润色开关仅控制**文档变量**（MC.文档、MC.申请记录）的生成方式
+  - 关闭 AI 润色时：文档变量由前端直接写入，其余变量（MC.系统、MC.玩家、MC.花名册等）仍由 AI 生成
+  - 新增 `GameStartOutput` 接口：`{ prompt, directCommands? }`，prompt 始终发送给 AI
+  - **关键时序修复**：文档变量在 AI 响应**完成后**才写入（暂存→watcher 监听 `aiIsStreaming` 变为 false→执行）
+  - 避免被 AI 响应处理时的 `replaceMvuData` 整体覆盖
+  - 修复旧版逻辑：之前"直接开始"会把所有内容作为变量命令执行，不发送任何 prompt，导致 AI 无响应
+
+- **修复表单字段选项输入无法输入标点** ([`FieldDefEditor.vue`](src/MClite/components/game/gamestart/FieldDefEditor.vue))
+  - 选项输入从 `@input` 改为 `@compositionend` + `@change`，兼容中文输入法（IME）
+  - 选项分隔符说明改为"用逗号或顿号分隔"
+
+### Added
+
+- **表单数据 localStorage 缓存** ([`GameStartPanel.vue`](src/MClite/components/game/GameStartPanel.vue))
+  - 编辑器数据自动保存到 `localStorage`，500ms 防抖
+  - 面板重新打开时自动恢复上次编辑内容，防止误触开局后数据丢失
+  - 重置按钮同时清除缓存
+  - 支持 `Map<string, EditorNode>` 的序列化/反序列化
+
+### Changed
+
+- **事件链路类型更新** ([`GameStartPanel.vue`](src/MClite/components/game/GameStartPanel.vue), [`MainContent.vue`](src/MClite/components/game/MainContent.vue), [`GameLayout.vue`](src/MClite/components/game/GameLayout.vue))
+  - emit 类型从 `string` 改为 `GameStartOutput` 对象，全链路传递 `{ prompt, directCommands? }`
+
+---
+
+## [0.9.1] - 2026-02-21
+
+> 🎨 **UI 修复与优化**：开局面板布局重排、AI 模式开关更醒目、去除 emoji 按钮、隐藏技术字段、模态框全屏修复
+
+### Changed
+
+- **开局面板布局重排** ([`GameStartPanel.vue`](src/MClite/components/game/GameStartPanel.vue))
+  - 文档编辑器提升为面板主体，始终展开占据核心区域
+  - 场景设定、玩家设定、花名册字段收纳到可折叠"基础设定"区域（默认展开，可手动折叠）
+  - 补充说明收纳到可折叠区域（默认折叠）
+  - 移除进度指示器（折叠后意义不大）
+  - 验证失败时自动展开基础设定区域，折叠状态下显示"有未填必填项"警告
+
+- **AI 模式开关改为分段按钮** ([`GameStartHeader.vue`](src/MClite/components/game/gamestart/GameStartHeader.vue))
+  - 替换原有的小型 toggle switch 为醒目的分段按钮（Segmented Control）
+  - 两个选项：`直接开始` / `AI 润色`，当前选中高亮
+  - 新增模式说明栏，显示当前模式含义
+  - 精简头部：移除游戏图标和副标题
+
+- **底部按钮去除 emoji** ([`GameStartFooter.vue`](src/MClite/components/game/gamestart/GameStartFooter.vue))
+  - 所有按钮改为纯文本：随机填充、重置、保存预设、预览、直接开始/AI润色并开始
+  - 移除 `.btn-icon` span 元素，缩减按钮 padding，布局更紧凑
+
+- **FormMetaEditor 隐藏技术字段** ([`FormMetaEditor.vue`](src/MClite/components/game/gamestart/FormMetaEditor.vue))
+  - 移除 `targetPath` 输入框，玩家不再看到 `MC.申请记录.物资申请` 等技术路径
+  - 标题从"表单元数据 ($formMeta)"改为"表单设定"
+  - 保留：表单名称、描述、有效天数、审批工作流
+
+- **申请记录分类名自动生成** ([`GameStartBuilderService.ts`](src/MClite/services/GameStartBuilderService.ts))
+  - `MC.申请记录` 分类名改用 `formMeta.formName || doc.docKey` 自动生成，不再依赖 `targetPath`
+
+- **FormMeta 类型更新** ([`form.ts`](src/MClite/types/form.ts))
+  - `targetPath` 从必填改为可选字段
+
+### Fixed
+
+- **文档编辑器默认为空的问题** ([`DocumentEditorSection.vue`](src/MClite/components/game/gamestart/DocumentEditorSection.vue))
+  - `onMounted` 时如果文档列表为空，自动调用 `addDefaultDocuments()` 创建默认文档
+  - 玩家进入面板即可看到默认文档结构并开始编辑
+
+- **默认表单文档缺少字段定义** ([`DocumentEditorSection.vue`](src/MClite/components/game/gamestart/DocumentEditorSection.vue))
+  - 默认创建的"申请表管理办法"现在自带节点结构和 `$fieldDef` 绑定
+  - 预置 4 个常用字段：申请事项(text)、申请原因(textarea)、申请人(roster)、申请日期(date)
+  - 表单预览不再显示"暂无表单字段"空状态
+
+- **模态框在全屏模式下不可见** ([`PresetManagerDialog.vue`](src/MClite/components/game/gamestart/PresetManagerDialog.vue), [`PromptPreviewDialog.vue`](src/MClite/components/game/gamestart/PromptPreviewDialog.vue), [`FieldDefEditor.vue`](src/MClite/components/game/gamestart/FieldDefEditor.vue))
+  - 移除所有 `<teleport to="body">`，改为在组件内直接渲染
+  - 原因：SillyTavern 全屏模式使用 `requestFullscreen()`，teleport 到 body 的元素在全屏元素外部不可见
+  - 模态框保持 `position: fixed; inset: 0; z-index: 1000` 在全屏容器内正确覆盖
+
+### 布局变化
+
+```
+修改前:
+  进度条 → 场景设定 → 玩家设定 → 花名册 → 文档编辑器 → 补充说明
+
+修改后:
+  ▾ 基础设定 (可折叠: 场景/玩家/花名册，默认展开)
+  📋 规章制度文档 (核心主体，始终展开)
+  ▸ 补充说明 (可折叠，默认折叠)
+```
+
+---
+
+## [0.9.0] - 2026-02-21
+
+> 🎉 **重大重构**：开局面板重构为结构化文档大纲编辑器
+
+### Added
+
+- **结构化文档大纲编辑器** ([`DocumentOutlineEditor.vue`](src/MClite/components/game/gamestart/DocumentOutlineEditor.vue), [`EditorNodeItem.vue`](src/MClite/components/game/gamestart/EditorNodeItem.vue))
+  - 替代旧版纯文本输入，玩家直接在树形界面中编辑文档结构
+  - 递归渲染节点，支持章 > 节 > 条 > 款 > 项 > 目六级层级
+  - 点击编辑 key/text，不同层级使用不同字号样式
+  - 节点 CRUD：添加子节点、添加同级节点、删除节点
+  - 键盘支持：Tab 缩进、Shift+Tab 取消缩进，自动维护层级结构
+  - 折叠/展开控制，大文档编辑更清晰
+
+- **AI 模式切换** ([`GameStartHeader.vue`](src/MClite/components/game/gamestart/GameStartHeader.vue), [`GameStartBuilderService.ts`](src/MClite/services/GameStartBuilderService.ts))
+  - **AI 关闭模式（直接开始）**：前端直接生成 `<UpdateVariable>` 命令，将编辑器内容转为完整变量结构，无需调用 AI
+  - **AI 润色模式**：将编辑器内容转为 JSON 骨架嵌入提示词，AI 保留结构并润色文字、补充细节、生成 NPC
+  - 头部开关一键切换，按钮文字动态显示"直接开始"或"AI 润色并开始"
+
+- **多文档管理** ([`DocumentTabs.vue`](src/MClite/components/game/gamestart/DocumentTabs.vue), [`DocumentEditorSection.vue`](src/MClite/components/game/gamestart/DocumentEditorSection.vue))
+  - Tab 栏切换多个文档，支持新建和删除
+  - 每个文档独立编辑 key、标题、描述
+  - 默认创建"员工守则"和"申请表管理办法"两份文档
+
+- **表单文档编辑** ([`FormMetaEditor.vue`](src/MClite/components/game/gamestart/FormMetaEditor.vue), [`FieldDefEditor.vue`](src/MClite/components/game/gamestart/FieldDefEditor.vue), [`FormPreviewPanel.vue`](src/MClite/components/game/gamestart/FormPreviewPanel.vue))
+  - 文档可标记为"表单文档"，启用 `$formMeta` 编辑（formName、targetPath、workflow 流程步骤）
+  - 节点可绑定 `$fieldDef`（字段定义），支持 10 种输入类型
+  - 实时表单预览：编辑态 → 存储态 → FormParserService 解析 → 字段渲染
+
+- **编辑态数据结构** ([`documentEditor.ts`](src/MClite/types/documentEditor.ts))
+  - `EditorNode`：扁平 Map + ID 引用设计，O(1) 查找任意节点
+  - `EditorDocument`：文档级容器，含 rootNodeIds 有序列表
+  - `GameStartEditorData`：整个开局编辑态，包含场景/玩家/花名册字段/文档/AI模式
+  - 避免深层 reactive proxy 的性能问题
+
+- **双向转换服务** ([`DocumentBuilderService.ts`](src/MClite/services/DocumentBuilderService.ts))
+  - `buildDocumentEntry()`：编辑态 → 存储态（递归自相似 `_t`/`_s` 结构）
+  - `parseToEditorDocument()`：存储态 → 编辑态（从预设/已有变量加载）
+  - `buildDocumentSkeleton()`：生成 AI 润色用 JSON 骨架
+  - 自动注入 `$meta: { extensible: true }` 确保可扩展
+
+- **变量生成服务** ([`GameStartBuilderService.ts`](src/MClite/services/GameStartBuilderService.ts))
+  - `buildVariablesDirectly()`：AI 关闭模式，生成完整 `<UpdateVariable>` 命令块
+  - `buildAIPolishPrompt()`：AI 润色模式，生成含结构骨架的提示词
+  - 自动构建 MC.系统、MC.玩家、MC.文档、MC.花名册（schema + 空 entries）、MC.申请记录
+
+### Changed
+
+- **GameStartPanel.vue 重写** ([`GameStartPanel.vue`](src/MClite/components/game/GameStartPanel.vue))
+  - 从 ~3338 行单体组件重写为 ~500 行纯编排组件
+  - 拆分为 16 个子组件，职责清晰
+  - 使用 `reactive<GameStartEditorData>` 作为单一状态源
+  - 预设加载/保存自动在 `GameStartEditorData` 和旧版 `GameStartFormData` 之间转换，向后兼容
+
+- **GameLayout.vue 直接执行支持** ([`GameLayout.vue`](src/MClite/components/game/GameLayout.vue))
+  - `handleGameStart()` 新增直接命令检测：正则匹配 `^<UpdateVariable>` 前缀
+  - 匹配时直接调用 `mvuStore.parseAndExecuteCommands()` 执行变量初始化，跳过 AI 调用
+  - 不匹配时走原有 `sendMessageToAI()` 路径（AI 润色模式）
+
+### 组件拆分结构
+
+```
+GameStartPanel.vue (~500行，纯编排)
+├── GameStartHeader.vue — 标题 + AI模式切换 + 预设按钮
+├── SceneSettingsSection.vue — 场景类型/名称/描述/世界观
+├── PlayerSettingsSection.vue — 玩家姓名/年龄/职位/部门
+├── RosterFieldsSection.vue — 花名册字段标签编辑
+├── DocumentEditorSection.vue — 文档编辑区壳
+│   ├── DocumentTabs.vue — 多文档 Tab + 新建/删除
+│   ├── DocumentMetaEditor.vue — 文档 key/title/description + 表单开关
+│   ├── DocumentOutlineEditor.vue — 核心大纲编辑器
+│   │   └── EditorNodeItem.vue — 单节点编辑行（递归）
+│   ├── FormMetaEditor.vue — $formMeta 编辑（仅表单文档）
+│   ├── FieldDefEditor.vue — 节点 $fieldDef 弹出编辑器
+│   └── FormPreviewPanel.vue — 表单预览
+├── AdditionalNotesSection.vue — 补充说明
+├── GameStartFooter.vue — 操作按钮
+├── PresetManagerDialog.vue — 预设管理模态框
+└── PromptPreviewDialog.vue — 提示词预览模态框
+```
+
+---
+
+## [0.8.2] - 2026-02-20
+
+### Fixed
+
+- **修复自动存档无法转换为手动存档的问题** ([`SaveService.ts`](src/MClite/services/SaveService.ts:944))
+  - 问题：`convertAutoSaveToManual()` 通过导出→重新导入→删除原存档的方式转换，但 `importSave()` 没有清除 `isAutoSave` 和 `saveSource` 字段，导致转换后的存档仍带有 `isAutoSave: true`，继续显示在自动存档列表中
+  - 修复：在 `importSave()` 中添加 `delete saveData.isAutoSave` 和 `saveData.saveSource = 'manual'`，确保所有导入的存档都被标记为手动存档
+
+- **修复花名册可拓展标签缺失导致NPC无法动态添加新字段的问题** ([`gameStart.ts`](src/MClite/types/gameStart.ts:400), [`MClite变量描述与规则v6`](src/MClite/想法集/AI提示词/MClite变量描述与规则v6:38))
+  - 问题：初始变量结构提示词和变量更新提示词中，花名册部分未要求在花名册对象、entries 容器上添加 `$meta: { extensible: true }` 可拓展标签，花名册修改准则中也未要求每个NPC条目包含该标签，导致AI生成的变量结构缺少可拓展标记，后续无法为NPC动态添加新字段
+  - 修复：
+    - `gameStart.ts`：花名册部分新增花名册对象本身、entries 容器、每个NPC条目三个层级的 `$meta` 要求
+    - 变量更新提示词花名册修改准则：步骤2（创建条目）和步骤4（覆盖条目添加新字段）明确要求包含 `"$meta": { "extensible": true }"`
+
+---
+
 ## [0.8.1] - 2026-02-04-11:09
 
 > 🔧 **Bug修复**：存档/读档功能正文恢复——直接快照酒馆消息0
